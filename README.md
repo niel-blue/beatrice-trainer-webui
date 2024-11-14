@@ -38,10 +38,20 @@ Beatrice公式から推奨スペックの発表はありません。
 ![DL](https://github.com/user-attachments/assets/04a65cb3-163a-40d8-9d35-db803c004ddd)
 
 
+
 2. 同梱されている `setup.bat` を実行して、必要な環境をセットアップ。
 3. セットアップが完了したら、`run_webui.bat` を実行して、Web UIを起動。
 
 
+
 ![webui](https://github.com/user-attachments/assets/0d7cd243-edd4-4610-8d47-455bc5df6dbc)
 
+
+
+### Beta.2においての追加学習について
+
+Beatriceはステップ数がn_stepsのときに学習率が0に近くなるように学習率をスケジューリングしている。(TensorBoardのother/lr_gとother/lr_dが学習率です)
+よって、現状、n_stepsで指定したステップ数まで学習が終わったモデルはそれ以上追加学習が行えない。
+追加学習をする場合は、学習が終了したファイルよりもひとつ手前のファイルをcheckpoint_latest.ptにリネームして学習する必要がある。
+とのことです。
 
