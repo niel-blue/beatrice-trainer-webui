@@ -1,4 +1,4 @@
-![image](https://github.com/user-attachments/assets/3546a11e-10f7-4272-8a9a-c0a5b9397e79)## Beatrice Trainer v2 beta.2 Unofficial Simple WebUI Installer
+## Beatrice Trainer v2 beta.2 Unofficial Simple WebUI Installer
 
 ## プログラム概要
 
@@ -45,5 +45,3 @@ Beatrice公式から推奨スペックの発表はありません。
 ![webui](https://github.com/user-attachments/assets/0d7cd243-edd4-4610-8d47-455bc5df6dbc)
 
 
-
-### 導入方法
