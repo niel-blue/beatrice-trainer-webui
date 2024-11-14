@@ -35,7 +35,8 @@ Beatrice公式から推奨スペックの発表はありません。
 
 1. 本リポジトリをダウンロードし、適切な場所に解凍。
 
-![DL](https://github.com/user-attachments/assets/04a65cb3-163a-40d8-9d35-db803c004ddd)
+
+![DL](https://github.com/user-attachments/assets/86e9a444-8c46-4106-9de0-4d5abb1c348b)
 
 
 
@@ -45,6 +46,7 @@ Beatrice公式から推奨スペックの発表はありません。
 
 
 ![webui](https://github.com/user-attachments/assets/0d7cd243-edd4-4610-8d47-455bc5df6dbc)
+
 
 
 
