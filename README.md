@@ -2,8 +2,7 @@
 
 ## プログラム概要
 
-本プログラムは、AIボイスチェンジャーVST『Beatrice』の学習キットである『Beatrice Trainer』にWebUIを上乗せしたものです。  
-なお、これは『Beatrice Trainer』の公式リリースとは無関係であり、あくまでカスタマイズされた簡易インターフェースを提供するものです。  
+本プログラムは、AIボイスチェンジャーVST「Beatrice」用の学習キット「Beatrice Trainer」に、WebUI機能を追加したものです。なお、こちらは「Beatrice Trainer」の公式リリースとは無関係であり、あくまでカスタマイズされた簡易インターフェースを提供するものです。WebUIに関する質問以外にはお答えできませんので、ご了承ください。 
 
 『Beatrice』と『Beatrice Trainer』に関する詳細は、以下のリンクをご確認ください：
 
