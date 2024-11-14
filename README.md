@@ -2,9 +2,13 @@
 
 ## プログラム概要
 
-本プログラムは、[fierce-cats/beatrice-trainer](https://huggingface.co/fierce-cats/beatrice-trainer) を導入し、WebUIを追加したものです。なお、これは公式の `beatrice-trainer` とは無関係であり、あくまでカスタマイズされたインターフェースを提供するものです。
+本プログラムは、AIボイスチェンジャーVST『Beatrice』の学習キットである『Beatrice Trainer』にWebUIを上乗せしたものです。なお、これは『Beatrice Trainer』の公式リリースとは無関係で、あくまでカスタマイズされたインターフェースを提供するものです。
 
-まず最初に、[fierce-cats/beatrice-trainer](https://huggingface.co/fierce-cats/beatrice-trainer) の内容をお読みいただき、公式の情報をご確認ください。その後、こちらのプログラムを使ってさらに便利に活用していただけます。
+『Beatrice』と『Beatrice Trainer』に関する詳細は、以下のリンクをご確認ください：
+
+- [Beatrice (AIボイスチェンジャー VST)](https://huggingface.co/fierce-cats/beatrice)
+- [Beatrice Trainer (学習キット)](https://huggingface.co/fierce-cats/beatrice-trainer)
+
 
 ---
 
