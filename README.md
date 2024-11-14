@@ -1,4 +1,4 @@
-## Beatrice Trainer v2 beta.2 Unofficial Simple WebUI Installer
+## Beatrice Trainer v2 beta.2 Unofficial Simple WebUI
 
 ## プログラム概要
 
