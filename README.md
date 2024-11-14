@@ -34,10 +34,10 @@ Beatrice公式から推奨スペックの発表はありません。
 
 1. リポジトリをダウンロードし、適切な場所に解凍。
 
-
+![DL](https://github.com/user-attachments/assets/f5d9a0c8-53eb-4030-a917-7b4492eb6b77)
 
 2. 同梱されている `setup.bat` を実行して、必要な環境をセットアップ。
 3. セットアップが完了したら、`run_webui.bat` を実行して、Web UIを起動。
 
-
+![webui](https://github.com/user-attachments/assets/fa2f2627-7947-4473-8fda-25e0159b33fc)
 
