@@ -1,4 +1,4 @@
-## Beatrice Trainer v2 beta.2 Unofficial Simple WebUI Installer
+![image](https://github.com/user-attachments/assets/3546a11e-10f7-4272-8a9a-c0a5b9397e79)## Beatrice Trainer v2 beta.2 Unofficial Simple WebUI Installer
 
 ## プログラム概要
 
@@ -34,10 +34,10 @@ Beatrice公式から推奨スペックの発表はありません。
 
 1. リポジトリをダウンロードし、適切な場所に解凍。
 
-![DL](https://github.com/user-attachments/assets/f5d9a0c8-53eb-4030-a917-7b4492eb6b77)
+![DL](https://github.com/user-attachments/assets/04a65cb3-163a-40d8-9d35-db803c004ddd)
+
 
 2. 同梱されている `setup.bat` を実行して、必要な環境をセットアップ。
 3. セットアップが完了したら、`run_webui.bat` を実行して、Web UIを起動。
 
-![webui](https://github.com/user-attachments/assets/fa2f2627-7947-4473-8fda-25e0159b33fc)
-
+### 導入方法
