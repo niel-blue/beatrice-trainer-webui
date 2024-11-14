@@ -35,7 +35,7 @@ Beatrice公式から推奨スペックの発表はありません。
 
 ### BeatriceTrainer と Webui 両方まとめて導入
 
-1. 本リポジトリをダウンロードし、適切な場所に解凍。
+1. リポジトリをダウンロードし、適切な場所に解凍。
 
 
 ![DL](https://github.com/user-attachments/assets/86e9a444-8c46-4106-9de0-4d5abb1c348b)
