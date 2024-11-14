@@ -7,7 +7,7 @@
 
 『Beatrice』と『Beatrice Trainer』に関する詳細は、以下のリンクをご確認ください：
 
-- [Beatrice (AIボイスチェンジャー VST)](https://huggingface.co/fierce-cats/beatrice)
+- [Beatrice (AIボイスチェンジャー VST)](https://prj-beatrice.com/)
 - [Beatrice Trainer (学習キット)](https://huggingface.co/fierce-cats/beatrice-trainer)
 
 
