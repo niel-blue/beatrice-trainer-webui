@@ -30,14 +30,20 @@ Beatrice公式から推奨スペックの発表はありません。
 - **グラフィックカード**：NVIDIA RTXシリーズ以上、VRAM 12GB以上（8GBでも動作する可能性あり）
 - **ストレージ**：SSD、空き容量20GB以上推奨
 
-### 導入方法
 
-1. リポジトリをダウンロードし、適切な場所に解凍。
+### Beatrice Trainer と Webui 両方まとめて導入する方法
+
+1. 本リポジトリをダウンロードし、適切な場所に解凍。
 
 ![DL](https://github.com/user-attachments/assets/04a65cb3-163a-40d8-9d35-db803c004ddd)
 
 
 2. 同梱されている `setup.bat` を実行して、必要な環境をセットアップ。
 3. セットアップが完了したら、`run_webui.bat` を実行して、Web UIを起動。
+
+
+![webui](https://github.com/user-attachments/assets/0d7cd243-edd4-4610-8d47-455bc5df6dbc)
+
+
 
 ### 導入方法
