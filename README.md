@@ -1,3 +1,9 @@
+# Warning!!!  
+公式のバージョンが変更された為、現在本プログラムは使用できません。アップデートまでお待ちください。  
+Please be advised! This program is no longer supported due to an official version change. Please wait for the update. 
+
+---
+
 ## Beatrice Trainer v2 beta.2 Unofficial Simple WebUI
 
 ## プログラム概要
@@ -7,8 +13,7 @@
 『Beatrice』と『Beatrice Trainer』に関する詳細は、以下のリンクをご確認ください
 
 - [Beatrice (AIボイスチェンジャー VST)](https://prj-beatrice.com/)
-- [Beatrice Trainer (学習キット)](https://huggingface.co/fierce-cats/beatrice-trainer)
-
+- [Beatrice Trainer (学習キット)](https://huggingface.co/fierce-cats/beatrice-trainer) 
 
 ---
 
