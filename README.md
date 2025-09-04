@@ -1,6 +1,5 @@
 # Warning!!!  
-公式のバージョンが変更された為、現在本プログラムは使用できません。アップデートまでお待ちください。  
-Please be advised! This program is no longer supported due to an official version change. Please wait for the update. 
+本プログラムは突貫工事でアプデしたのでエラーがでたり予期せぬ問題が起きる可能性があります！
 
 ---
 
