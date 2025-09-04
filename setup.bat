@@ -3,8 +3,10 @@ chcp 65001 > NUL
 
 echo.
 echo  =================================================
-echo  Beatrice Trainer 2.0.0-beta.2
+echo  Beatrice Trainer 2.0.0-rc.0
 echo  Unofficial Simple WebUI Installer
+echo.
+echo  2025.09.04
 echo  =================================================
 echo.
 
@@ -16,6 +18,7 @@ set PATH=%TOOLS%\PortableGit\bin;%TOOLS%\python;%TOOLS%\python\Scripts;%PATH%
 set PYTHONPATH=%TOOLS%\python;
 set PY="%TOOLS%\python\python.exe"
 set PIP_CACHE_DIR=%TOOLS%\pip
+
 
 if exist "%TOOLS%\python" (goto :DLGit)
 echo.
@@ -37,6 +40,7 @@ echo import site>> %TOOLS%\python\python310._pth
 del %TOOLS%\python\get-pip.py
 %PY% -m pip install virtualenv --no-warn-script-location
 
+
 :DLGit
 if exist "%TOOLS%\PortableGit" (goto :Gitclone)
 echo.
@@ -47,7 +51,6 @@ echo.
 %TOOLS%\PortableGit-2.44.0-64-bit.7z.exe -y
 del %TOOLS%\PortableGit-2.44.0-64-bit.7z.exe
 rmdir /s /q Microsoft
-
 
 :Gitclone
 echo.
@@ -71,10 +74,13 @@ cd beatrice-trainer
 %PY% -m virtualenv --copies venv
 call venv\Scripts\activate.bat
 
-pip install -e .
-pip install torch==2.2.2+cu121 torchvision==0.17.2+cu121 torchaudio==2.2.2 -f https://download.pytorch.org/whl/torch_stable.html
+pip install -e .[cu128]
 pip install gradio==5.5
 pip install TensorFlow
+
+echo.
+echo [Run WebUI]
+echo.
 
 python webui.py %*
 
