@@ -1,21 +1,19 @@
-# Warning!!!  
-本プログラムはだいぶ雑に作ったので予期せぬエラーなどが出る可能性があります！
-
----
-
-## Beatrice Trainer v2 rc.0 対応　Unofficial Simple WebUI
+# Beatrice Trainer v2 rc.0 対応　Unofficial Simple WebUI
 
 ## プログラム概要
 
-本プログラムは、AIボイスチェンジャーVST「Beatrice」用の学習キット「Beatrice Trainer」に、WebUI機能を追加したものです。なお、こちらは「Beatrice Trainer」の公式リリースとは無関係であり、あくまでカスタマイズされた簡易インターフェースを提供するものです。よってWebUIに関する質問以外にはお答えすることは出来ません。また、現バージョンのみの対応となっており、本家のプログラムのアップデートにより使用不可能になる可能性があります。
-
+本プログラムは、AIボイスチェンジャーVST「Beatrice」用の学習キット「Beatrice Trainer」に、WebUI機能を追加したものです。  
 『Beatrice』と『Beatrice Trainer』に関する詳細は、以下のリンクをご確認ください
 
 - [Beatrice (AIボイスチェンジャー VST)](https://prj-beatrice.com/)
 - [Beatrice Trainer (学習キット)](https://huggingface.co/fierce-cats/beatrice-trainer) 
 
----
 
+### 注意！！！
+こちらは「Beatrice Trainer」の公式リリースとは無関係であり、あくまでカスタマイズされた簡易インターフェースを提供するものです。  
+よってWebUIに関する質問以外にはお答えすることは出来ません。また、現バージョンのみの対応となっており、本家のプログラムのアップデートにより使用不可能になる可能性があります。
+
+---
 ### PythonやGitのインストール不要
 必要な環境は自動で構築されます（インストールはせずダウンロードして解凍するだけ）。  
 ただし環境によってはMicrosoft Visual Studioのインストールが必要。  
