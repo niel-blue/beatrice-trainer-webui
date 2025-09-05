@@ -4,9 +4,9 @@ chcp 65001 > NUL
 echo.
 echo  =================================================
 echo  Beatrice Trainer 2.0.0-rc.0
-echo  Unofficial Simple WebUI Installer
+echo  Unofficial Simple WebUI Installer for CUDA
 echo.
-echo  2025.09.04
+echo  2025.09.05
 echo  =================================================
 echo.
 
@@ -74,9 +74,12 @@ cd beatrice-trainer
 %PY% -m virtualenv --copies venv
 call venv\Scripts\activate.bat
 
-pip install -e .[cu128]
+pip install .[cpu]
 pip install gradio==5.5
 pip install TensorFlow
+
+pip uninstall -y torch torchaudio
+pip install torch==2.7.0 torchaudio==2.7.0 --upgrade --index-url https://download.pytorch.org/whl/cu128
 
 echo.
 echo [Run WebUI]
