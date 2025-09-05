@@ -78,6 +78,10 @@ pip install -e .[cu128]
 pip install gradio==5.5
 pip install TensorFlow
 
+pip uninstall -y torch torchaudio
+pip install torch==2.7.0 torchaudio==2.7.0 --upgrade --index-url https://download.pytorch.org/whl/cu128
+
+
 echo.
 echo [Run WebUI]
 echo.
@@ -88,3 +92,4 @@ echo.
 echo.
 pause
 exit
+
