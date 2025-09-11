@@ -42,15 +42,17 @@ Beatrice公式から推奨スペックの発表はありません。
 
 ### BeatriceTrainer と Webui 両方まとめて導入
 
-1. [リポジトリをダウンロード](https://github.com/niel-blue/beatrice-trainer-webui/archive/refs/heads/main.zip)、適切な場所に解凍。
+1. [リポジトリをダウンロード](https://github.com/niel-blue/beatrice-trainer-webui/archive/refs/heads/main.zip)、適切な場所に解凍。  
+その際、あまりに深い階層や、日本語を使用したフォルダの中などは避けてください。
 
 
 ![DL](https://github.com/user-attachments/assets/86e9a444-8c46-4106-9de0-4d5abb1c348b)
 
 
 
-2. 同梱されている `setup.bat` を実行すると、自動的にダウンロードおよび環境構築が始まります。  
+2. 同梱されている `setup.bat` を実行すると、自動的にダウンロードおよび環境構築が始まります。通信環境によっては非常に時間がかかる場合があります。  
 3. セットアップが完了したら、`run_webui.bat` を実行して、Web UIを起動してください。
+
 ---
 ### バージョン履歴
 
