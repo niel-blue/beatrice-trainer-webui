@@ -7,6 +7,9 @@ import locale
 import importlib
 import shutil
 
+# バージョン情報
+VERSION = "2025.09.11"
+
 # カレントディレクトリの取得
 current_dir = os.getcwd()
 default_config_path = os.path.join(current_dir, "assets", "default_config.json")
@@ -25,7 +28,6 @@ def load_locale():
         return lang_en.lang_data
 
 locale_data = load_locale()
-
 
 # デフォルトconfig.jsonの読み込み
 with open(default_config_path, "r", encoding="utf-8") as f:
@@ -80,7 +82,6 @@ def checkpoint_check(output_folder, checkpoint):
 
     add_option = "-r"
     return True
-
 
 # カンマ区切りの文字列をfloatのリストに変換するヘルパー関数
 def str_to_float_list(s):
@@ -173,7 +174,6 @@ def generate_config(
     # 環境変数を設定
     os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 
-
 # トレーニングコマンドを実行する関数
 def run_training(input_folder, output_folder):
     if add_option == "-r":
@@ -194,7 +194,6 @@ def run_training(input_folder, output_folder):
         command.append("-r")
         
     subprocess.run(command)
-
 
 # 入力フィールドをリセットする関数
 def reset_inputs():
@@ -271,24 +270,24 @@ def start_tensorboard(output_folder):
 
 # UI構築
 with gr.Blocks() as demo:
-    gr.HTML(f"<h1>{locale_data['title']}</h1>")
+    gr.HTML(f"<h1>{locale_data['title']}</h1><p style='font-size: 1.0em;'>Ver: {VERSION}</p>")
 
     # --- Basic Settings ---
     with gr.Row():
         with gr.Column():
-            input_folder = gr.Textbox(label=locale_data["input_folder"], placeholder=locale_data["input_folder_place"])
-            output_folder = gr.Textbox(label=locale_data["output_folder"], placeholder=locale_data["output_folder_place"])
-            checkpoint = gr.Textbox(label=locale_data["checkpoint"], placeholder=locale_data["checkpoint_place"])
+            input_folder = gr.Textbox(label=locale_data["input_folder"], placeholder=locale_data["input_folder_place"], info=locale_data["input_folder_info"])
+            output_folder = gr.Textbox(label=locale_data["output_folder"], placeholder=locale_data["output_folder_place"], info=locale_data["output_folder_info"])
+            checkpoint = gr.Textbox(label=locale_data["checkpoint"], placeholder=locale_data["checkpoint_place"], info=locale_data["checkpoint_info"])
     
-    # --- Main Training Parameters ---
-    with gr.Row():
-        n_steps = gr.Number(label="n_steps", minimum=1, step=1, value=default_config["n_steps"], interactive=True)
-        batch_size = gr.Number(label="Batch Size", minimum=1, step=1, value=default_config["batch_size"], interactive=True)
-        num_workers = gr.Number(label="Num Workers", minimum=0, step=1, value=default_config["num_workers"], interactive=True)
-
-    with gr.Row():
-        save_interval = gr.Number(label="Save Interval", minimum=1, step=1, value=default_config["save_interval"], interactive=True)
-        evaluation_interval = gr.Number(label="Evaluation Interval", minimum=1, step=1, value=default_config["evaluation_interval"], interactive=True)
+    # --- Main Training Parameters (まとめてAccordion化) ---
+    with gr.Accordion(locale_data["basic_training"], open=True):
+        with gr.Row():
+            n_steps = gr.Number(label="n_steps", minimum=1, step=1, value=default_config["n_steps"], interactive=True, info=locale_data["n_steps_info"])
+            batch_size = gr.Number(label="Batch Size", minimum=1, step=1, value=default_config["batch_size"], interactive=True, info=locale_data["batch_size_info"])
+            num_workers = gr.Number(label="Num Workers", minimum=0, step=1, value=default_config["num_workers"], interactive=True, info=locale_data["num_workers_info"])
+        with gr.Row():
+            save_interval = gr.Number(label="Save Interval", minimum=1, step=1, value=default_config["save_interval"], interactive=True, info=locale_data["save_interval_info"])
+            evaluation_interval = gr.Number(label="Evaluation Interval", minimum=1, step=1, value=default_config["evaluation_interval"], interactive=True, info=locale_data["evaluation_interval_info"])
         
     # --- Advanced options ---
     with gr.Accordion(locale_data["advanced_options"], open=False):
@@ -332,8 +331,8 @@ with gr.Blocks() as demo:
         # --- Audio / Model ---
         with gr.Accordion(locale_data["audio_model"], open=False):
             with gr.Row():
-                in_sample_rate = gr.Number(label="In Sample Rate", value=default_config["in_sample_rate"], interactive=False)
-                out_sample_rate = gr.Number(label="Out Sample Rate", value=default_config["out_sample_rate"], interactive=False)
+                in_sample_rate = gr.Number(label="In Sample Rate", value=default_config["in_sample_rate"], interactive=False, info=locale_data["in_sample_rate_info"])
+                out_sample_rate = gr.Number(label="Out Sample Rate", value=default_config["out_sample_rate"], interactive=False, info=locale_data["out_sample_rate_info"])
                 wav_length = gr.Number(label="Wav Length", value=default_config["wav_length"])
                 segment_length = gr.Number(label="Segment Length", value=default_config["segment_length"])
             with gr.Row():
@@ -348,24 +347,32 @@ with gr.Blocks() as demo:
         # --- File Paths ---
         with gr.Accordion(locale_data["file_paths"], open=False):
             with gr.Column():
-                    in_ir_wav_dir = gr.Textbox(label="In IR Wav Dir", value=default_config["in_ir_wav_dir"])
-                    in_noise_wav_dir = gr.Textbox(label="In Noise Wav Dir", value=default_config["in_noise_wav_dir"])
-                    in_test_wav_dir = gr.Textbox(label="In Test Wav Dir", value=default_config["in_test_wav_dir"])
-                    pretrained_file = gr.Textbox(label="Pretrained File", value=default_config["pretrained_file"])
-                    phone_extractor_file = gr.Textbox(label="Phone Extractor File", value=default_config["phone_extractor_file"])
-                    pitch_estimator_file = gr.Textbox(label="Pitch Estimator File", value=default_config["pitch_estimator_file"])
+                in_ir_wav_dir = gr.Textbox(label="In IR Wav Dir", value=default_config["in_ir_wav_dir"])
+                in_noise_wav_dir = gr.Textbox(label="In Noise Wav Dir", value=default_config["in_noise_wav_dir"])
+                in_test_wav_dir = gr.Textbox(label="In Test Wav Dir", value=default_config["in_test_wav_dir"])
+                pretrained_file = gr.Textbox(label="Pretrained File", value=default_config["pretrained_file"])
+                phone_extractor_file = gr.Textbox(label="Phone Extractor File", value=default_config["phone_extractor_file"])
+                pitch_estimator_file = gr.Textbox(label="Pitch Estimator File", value=default_config["pitch_estimator_file"])
 
         # --- Performance / Debug ---
         with gr.Accordion(locale_data["performance_debug"], open=False):
             with gr.Row():
+                with gr.Column():
                     use_amp = gr.Checkbox(label="Use AMP", value=default_config["use_amp"])
+                    gr.Markdown(locale_data["use_amp_info"])
+                with gr.Column():
                     san = gr.Checkbox(label="SAN (Discriminator)", value=default_config["san"])
+                    gr.Markdown(locale_data["san_info"])
+                with gr.Column():
                     record_metrics = gr.Checkbox(label="Record Metrics to TensorBoard", value=default_config["record_metrics"])
+                    gr.Markdown(locale_data["record_metrics_info"])
+                with gr.Column():
                     profile = gr.Checkbox(label="Profile", value=default_config["profile"])
+                    gr.Markdown(locale_data["profile_info"])
             with gr.Row():
-                    compile_convnext = gr.Checkbox(label="Compile ConvNext", value=default_config["compile_convnext"])
-                    compile_d4c = gr.Checkbox(label="Compile D4C", value=default_config["compile_d4c"])
-                    compile_discriminator = gr.Checkbox(label="Compile Discriminator", value=default_config["compile_discriminator"])
+                compile_convnext = gr.Checkbox(label="Compile ConvNext", value=default_config["compile_convnext"])
+                compile_d4c = gr.Checkbox(label="Compile D4C", value=default_config["compile_d4c"])
+                compile_discriminator = gr.Checkbox(label="Compile Discriminator", value=default_config["compile_discriminator"])
 
     # --- Buttons ---
     with gr.Row():
@@ -375,8 +382,6 @@ with gr.Blocks() as demo:
         train_button = gr.Button(value=locale_data["train"], variant="primary")
 
     # --- Event Handlers ---
-    
-    # Define input components list
     all_inputs = [
         # Training
         learning_rate_g, learning_rate_d, learning_rate_decay, adam_betas_1, adam_betas_2, adam_eps,
@@ -406,7 +411,6 @@ with gr.Blocks() as demo:
         outputs=None,
     )
     
-    # Define output components list for reset
     all_outputs = [
         input_folder, output_folder, checkpoint,
         learning_rate_g, learning_rate_d, learning_rate_decay, adam_betas_1, adam_betas_2, adam_eps,
@@ -432,19 +436,5 @@ with gr.Blocks() as demo:
         inputs=[output_folder],
         outputs=None,
     )
-
-    # --- Info Texts ---
-    input_folder.info = locale_data["input_folder_info"]
-    output_folder.info = locale_data["output_folder_info"]
-    checkpoint.info = locale_data["checkpoint_info"]
-    batch_size.info = locale_data["batch_size_info"]
-    num_workers.info = locale_data["num_workers_info"]
-    n_steps.info = locale_data["n_steps_info"]
-    save_interval.info = locale_data["save_interval_info"]
-    evaluation_interval.info = locale_data["evaluation_interval_info"]
-    in_sample_rate.info = locale_data["in_sample_rate_info"]
-    out_sample_rate.info = locale_data["out_sample_rate_info"]
-    record_metrics.info = locale_data["record_metrics_info"]
-
 
 demo.launch(inbrowser=True)
