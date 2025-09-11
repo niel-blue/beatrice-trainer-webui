@@ -6,7 +6,7 @@ echo  =================================================
 echo  Beatrice Trainer 2.0.0-rc.0
 echo  Unofficial Simple WebUI Installer for CUDA
 echo.
-echo  2025.09.05
+echo  2025.09.11
 echo  =================================================
 echo.
 
@@ -91,4 +91,3 @@ echo.
 echo.
 pause
 exit
-
