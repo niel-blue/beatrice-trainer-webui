@@ -15,7 +15,6 @@ echo.
 
 cd beatrice-trainer
 call venv\Scripts\activate.bat
-set PYTHONWARNINGS=ignore
 python webui.py
 
 echo.
