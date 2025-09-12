@@ -8,7 +8,7 @@ import importlib
 import shutil
 
 # バージョン情報
-VERSION = "2025.09.11"
+VERSION = "2025.09.12"
 
 # カレントディレクトリの取得
 current_dir = os.getcwd()
@@ -34,7 +34,7 @@ with open(default_config_path, "r", encoding="utf-8") as f:
     default_config = json.load(f)
 
 # IOフォルダのパスチェック関数
-def path_check(input_folder, output_folder, *args):
+def path_check(input_folder, output_folder):
     if not input_folder:
         gr.Warning(locale_data["input_folder_alert1"])
         return False
@@ -47,41 +47,10 @@ def path_check(input_folder, output_folder, *args):
     # 出力フォルダが存在しない場合は作成する
     os.makedirs(output_folder, exist_ok=True)
     
-    for arg in args:
-        if arg is None:
-            gr.Warning(locale_data["args_alert"])
-            return False
     return True
 
 # グローバル変数としてオプションを定義
 add_option = ""  # デフォルトは空の文字列
-
-# checkpointファイルの有無チェックとファイルのリネーム関数
-def checkpoint_check(output_folder, checkpoint):
-    global add_option
-    add_option = "" # オプションをリセット
-
-    if not checkpoint:
-        return True
-
-    checkpoint_path = os.path.join(output_folder, checkpoint)
-    
-    if not os.path.isfile(checkpoint_path):
-        gr.Warning(locale_data["checkpoint_alert"])
-        return False
-    
-    latest_checkpoint_path = os.path.join(output_folder, "checkpoint_latest.pt.gz")
-    
-    if os.path.isfile(latest_checkpoint_path):
-        gr.Info(locale_data["backup_info"].format(path=latest_checkpoint_path))
-        shutil.copy2(latest_checkpoint_path, latest_checkpoint_path + ".bak")  
-        os.remove(latest_checkpoint_path) 
-
-    gr.Info(locale_data["rename_info"].format(src=checkpoint_path, dest=latest_checkpoint_path))
-    shutil.copy2(checkpoint_path, latest_checkpoint_path)
-
-    add_option = "-r"
-    return True
 
 # カンマ区切りの文字列をfloatのリストに変換するヘルパー関数
 def str_to_float_list(s):
@@ -175,13 +144,26 @@ def generate_config(
     os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
 
 # トレーニングコマンドを実行する関数
-def run_training(input_folder, output_folder):
-    if add_option == "-r":
-        gr.Info(locale_data["addtrain_start"]) 
-    else:
-        gr.Info(locale_data["train_start"]) 
-    
+def run_training(input_folder, output_folder, checkpoint):
     config_path = os.path.join(output_folder, "config.json")
+    latest_checkpoint_path = os.path.join(output_folder, "checkpoint_latest.pt.gz")
+
+    add_option = ""
+    # ユーザー入力またはデフォルトのチェックポイントの存在をチェック
+    if checkpoint.lower() == "checkpoint_latest.pt.gz" and os.path.isfile(latest_checkpoint_path):
+        add_option = "-r"
+    elif checkpoint and os.path.isfile(os.path.join(output_folder, checkpoint)):
+        gr.Info(locale_data["rename_info"].format(src=os.path.join(output_folder, checkpoint), dest=latest_checkpoint_path))
+        shutil.copy2(os.path.join(output_folder, checkpoint), latest_checkpoint_path)
+        add_option = "-r"
+    elif not checkpoint and os.path.isfile(latest_checkpoint_path):
+        add_option = "-r"
+    
+    if add_option == "-r":
+        gr.Info(locale_data["addtrain_start"])
+    else:
+        gr.Info(locale_data["train_start"])
+    
     command = [
         "python",
         "beatrice_trainer/__main__.py",
@@ -248,8 +230,7 @@ def reset_inputs():
         default_config["pitch_estimator_file"],
         default_config["in_ir_wav_dir"],
         default_config["in_noise_wav_dir"],
-        default_config["in_test_wav_dir"],
-        default_config["pretrained_file"],
+        in_test_wav_dir, default_config["pretrained_file"],
         # Model
         default_config["pitch_bins"],
         default_config["hidden_channels"],
@@ -371,7 +352,7 @@ with gr.Blocks() as demo:
                     gr.Markdown(locale_data["profile_info"])
             with gr.Row():
                 compile_convnext = gr.Checkbox(label="Compile ConvNext", value=default_config["compile_convnext"])
-                compile_d4c = gr.Checkbox(label="Compile D4C", value=default_config["compile_d4c"])
+                compile_d4c = gr.Checkbox(label="Compile D4c", value=default_config["compile_d4c"])
                 compile_discriminator = gr.Checkbox(label="Compile Discriminator", value=default_config["compile_discriminator"])
 
     # --- Buttons ---
@@ -403,8 +384,7 @@ with gr.Blocks() as demo:
 
     train_button.click(
         lambda input_folder_val, output_folder_val, checkpoint_val, *args: (
-            checkpoint_check(output_folder_val, checkpoint_val) and
-            (generate_config(*args, input_folder_val, output_folder_val) or run_training(input_folder_val, output_folder_val))
+            (generate_config(*args, input_folder_val, output_folder_val) or run_training(input_folder_val, output_folder_val, checkpoint_val))
             if path_check(input_folder_val, output_folder_val) else None
         ),
         inputs=[input_folder, output_folder, checkpoint] + all_inputs,
