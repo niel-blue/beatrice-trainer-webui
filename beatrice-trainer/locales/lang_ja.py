@@ -14,10 +14,10 @@ lang_data = {
     "output_folder_alert2": "出力先フォルダのパスが不正です",
     "output_folder_info": "学習結果（チェックポイント、設定ファイル等）を保存するフォルダです。存在しない場合は自動で作成されます。\n追加学習の場合は、対象のチェックポイントが入っているフォルダを指定してください。",
 
-    "checkpoint": "[ 3. (任意) 追加学習用チェックポイント ]",
-    "checkpoint_place": "追加学習や学習再開に使用するチェックポイントファイル名（例: checkpoint_xxxx_00010000.pt.gz）",
+    "checkpoint": "[ 3. 追加学習用チェックポイント ]",
+    "checkpoint_place": "学習再開に使用するチェックポイントファイル名（例: checkpoint_xxxx_00010000.pt.gz）",
     "checkpoint_alert": "指定されたcheckpointファイルが存在しないか、ファイル名が間違っています",
-    "checkpoint_info": "中断した学習の再開や、既存モデルへの追加学習時に指定します。ファイルは出力先フォルダ内にある必要があります。",
+    "checkpoint_info": "指定された出力先フォルダに[checkpoint_latest.pt.gz]がある場合は、空欄のままでも自動的に追加学習になります。",
 
     "args_alert":"未入力の項目があります",
     "config_save_info": "現在の設定で config.json を書き出します…",

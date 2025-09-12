@@ -42,12 +42,10 @@ lang_data = {
     "out_sample_rate_info": "Output audio sampling rate (fixed value)",
     "record_metrics_info": "Records detailed loss and metrics to TensorBoard. Disabling this slightly reduces processing load but prevents training analysis.",
 
-    # Performance and Debugging Descriptions
     "use_amp_info": "Use AMP (Automatic Mixed Precision) to reduce VRAM usage and speed up training by employing half-precision calculations. However, it may cause instability in some environments.",
     "san_info": "Use a SAN (Self-Attention Network) based discriminator. It improves the quality of generated audio discrimination but increases computational cost.",
     "profile_info": "Records detailed training process information for bottleneck analysis and debugging. Enabling this reduces processing speed.",
 
-    # WebUI Headings
     "basic_training": "Basic Training Settings",
     "advanced_options": "Advanced Settings",
     "learning_rate_optimizer": "Learning Rate / Optimizer",
