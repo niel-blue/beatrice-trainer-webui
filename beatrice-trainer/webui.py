@@ -6,27 +6,41 @@ import webbrowser
 import locale
 import importlib
 import shutil
+import torch
+import torchaudio
+from pathlib import Path
+import multiprocessing
+import threading
+import time
+import queue
+import re
 
 # バージョン情報
-VERSION = "2025.09.12"
+VERSION = "25.09.18"
 
-# カレントディレクトリの取得
+# グローバル変数など
+torchaudio.set_audio_backend("sox_io")
+
+training_process = None
+is_terminated_by_user = False
+training_tasks = []
+current_task = None
+training_thread = None
 current_dir = os.getcwd()
 default_config_path = os.path.join(current_dir, "assets", "default_config.json")
 
-# 言語設定の読み込み
+# 言語設定ファイルの読み込み
 def load_locale():
     try:
         lang_code, _ = locale.getdefaultlocale()
-        # 日本語ならlang_ja.py、それ以外ならlang_en.pyを読み込む
         lang_file = "lang_ja" if lang_code == "ja_JP" else "lang_en"
         lang_module = importlib.import_module(f"locales.{lang_file}")
-        return lang_module.lang_data
-    except (ImportError, FileNotFoundError):
-        # デフォルトとして英語をフォールバック
+        lang_data = {key.upper(): value for key, value in lang_module.lang_data.items()}
+        return lang_data
+    except (ImportError, FileNotFoundError, AttributeError):
         from locales import lang_en
-        return lang_en.lang_data
-
+        lang_data = {key.upper(): value for key, value in lang_en.lang_data.items()}
+        return lang_data
 locale_data = load_locale()
 
 # デフォルトconfig.jsonの読み込み
@@ -35,22 +49,35 @@ with open(default_config_path, "r", encoding="utf-8") as f:
 
 # IOフォルダのパスチェック関数
 def path_check(input_folder, output_folder):
-    if not input_folder:
-        gr.Warning(locale_data["input_folder_alert1"])
+    if not input_folder or not os.path.exists(input_folder):
+        gr.Warning(locale_data["LNG_INPUT_FOLDER_ALERT"])
         return False
-    if not os.path.exists(input_folder):
-        gr.Warning(locale_data["input_folder_alert2"])
+    if not output_folder or not os.path.exists(output_folder):
+        gr.Warning(locale_data["LNG_OUTPUT_FOLDER_ALERT"])
         return False
-    if not output_folder:
-        gr.Warning(locale_data["output_folder_alert1"])
-        return False
-    # 出力フォルダが存在しない場合は作成する
-    os.makedirs(output_folder, exist_ok=True)
-    
     return True
-
-# グローバル変数としてオプションを定義
-add_option = ""  # デフォルトは空の文字列
+    
+# 入力フォルダ直下に音声ファイルがあるかチェックする関数
+def has_audio_files_in_root(input_folder):
+    audio_extensions = ["*.wav", "*.flac", "*.ogg", "*.aiff", "*.mp3"]
+    input_path = Path(input_folder)
+    for ext in audio_extensions:    # input_folder直下のみを検索
+        if any(input_path.glob(ext)):
+            return True
+    return False
+# 入力フォルダのサブフォルダに音声ファイルがあるかチェックする関数
+def has_audio_files_in_subfolders(input_folder):
+    audio_extensions = ["*.wav", "*.flac", "*.ogg", "*.aiff", "*.mp3"]
+    input_path = Path(input_folder)
+    # サブフォルダ内を再帰的に検索
+    for ext in audio_extensions:
+        # "**/" はサブフォルダを含む再帰的な検索を意味します。
+        if any(input_path.glob(f"**/{ext}")):
+            # 直下を除外するために、サブフォルダにのみ存在するファイルを確認
+            for f in input_path.glob(f"**/{ext}"):
+                if f.parent != input_path:
+                    return True
+    return False
 
 # カンマ区切りの文字列をfloatのリストに変換するヘルパー関数
 def str_to_float_list(s):
@@ -138,32 +165,15 @@ def generate_config(
     config_path = os.path.join(output_folder, "config.json")
     with open(config_path, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=4, ensure_ascii=False)
-        gr.Info(locale_data["config_save_info"])
-    
+        gr.Info(locale_data["LNG_CONFIG_SAVE_INFO"])
     # 環境変数を設定
     os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
+    return config_path
 
 # トレーニングコマンドを実行する関数
-def run_training(input_folder, output_folder, checkpoint):
+def start_training_command(input_folder, output_folder, is_resume):
+    global training_process
     config_path = os.path.join(output_folder, "config.json")
-    latest_checkpoint_path = os.path.join(output_folder, "checkpoint_latest.pt.gz")
-
-    add_option = ""
-    # ユーザー入力またはデフォルトのチェックポイントの存在をチェック
-    if checkpoint.lower() == "checkpoint_latest.pt.gz" and os.path.isfile(latest_checkpoint_path):
-        add_option = "-r"
-    elif checkpoint and os.path.isfile(os.path.join(output_folder, checkpoint)):
-        gr.Info(locale_data["rename_info"].format(src=os.path.join(output_folder, checkpoint), dest=latest_checkpoint_path))
-        shutil.copy2(os.path.join(output_folder, checkpoint), latest_checkpoint_path)
-        add_option = "-r"
-    elif not checkpoint and os.path.isfile(latest_checkpoint_path):
-        add_option = "-r"
-    
-    if add_option == "-r":
-        gr.Info(locale_data["addtrain_start"])
-    else:
-        gr.Info(locale_data["train_start"])
-    
     command = [
         "python",
         "beatrice_trainer/__main__.py",
@@ -171,75 +181,149 @@ def run_training(input_folder, output_folder, checkpoint):
         "-o", output_folder,
         "-c", config_path
     ]
-    
-    if add_option == "-r":
+    if is_resume:
         command.append("-r")
-        
-    subprocess.run(command)
+    # ノンブロッキングでプロセスを開始
+    training_process = subprocess.Popen(command)
 
-# 入力フィールドをリセットする関数
-def reset_inputs():
-    # default_configからリストを文字列に変換
-    aug_snr_str = ", ".join(map(str, default_config["augmentation_snr_candidates"]))
-    aug_lpf_str = ", ".join(map(str, default_config["augmentation_lpf_cutoff_freq_candidates"]))
+# トレーニングキューを処理するジェネレータ関数
+def process_training_queue_generator():
+    global training_process, is_terminated_by_user, training_tasks
+    # 開始時にボタンを無効化
+    yield gr.Button(interactive=False), gr.Button(interactive=False), gr.Button(interactive=True), gr.Markdown(locale_data["LNG_TASK_MONITOR"] + display_queue())
+    for task in training_tasks:
+        if is_terminated_by_user:
+            break
+        if task['status'] == 'pending':
+            task['status'] = 'in_progress'
+            yield gr.Button(interactive=False), gr.Button(interactive=False), gr.Button(interactive=True), gr.Markdown(locale_data["LNG_TASK_MONITOR"] + display_queue())
+            input_folder = task['input_folder']
+            output_folder = task['output_folder']
+            is_resume = task['is_resume']
+            config_params = task['config_params']
+            gr.Info(locale_data["LNG_QUEUE_START_INFO"].format(output_folder=output_folder))
+            # 設定ファイルを生成
+            generate_config(*config_params, input_folder=input_folder, output_folder=output_folder)
+            start_training_command(input_folder, output_folder, is_resume)
+            while training_process.poll() is None:
+                yield gr.Button(interactive=False), gr.Button(interactive=False), gr.Button(interactive=True), gr.Markdown(locale_data["LNG_TASK_MONITOR"] + display_queue())
+                time.sleep(1)
+            if not is_terminated_by_user and training_process.poll() == 0:
+                task['status'] = 'completed'
+            elif is_terminated_by_user:
+                task['status'] = 'stopped'
+                break
+            else:
+                task['status'] = 'error'
+                break
+    # 全てのタスクが完了したか、停止した場合
+    training_process = None
+    if is_terminated_by_user:
+        print(locale_data["LNG_USER_TERMINATED_MESSAGE"])
+    else:
+        print(locale_data["LNG_ALL_TASKS_COMPLETED_MESSAGE"])
+    is_terminated_by_user = False
+    
+    # 終了後にボタンを有効化
+    yield gr.Button(interactive=True), gr.Button(interactive=True), gr.Button(interactive=False), gr.Markdown(locale_data["LNG_TASK_MONITOR"] + display_queue())
 
-    return [
-        "",  # input_folder
-        "",  # output_folder
-        "",  # checkpoint
-        # Training
-        default_config["learning_rate_g"],
-        default_config["learning_rate_d"],
-        default_config["learning_rate_decay"],
-        default_config["adam_betas"][0],
-        default_config["adam_betas"][1],
-        default_config["adam_eps"],
-        default_config["batch_size"],
-        default_config["grad_weight_loudness"],
-        default_config["grad_weight_mel"],
-        default_config["grad_weight_ap"],
-        default_config["grad_weight_adv"],
-        default_config["grad_weight_fm"],
-        default_config["grad_balancer_ema_decay"],
-        default_config["use_amp"],
-        default_config["num_workers"],
-        default_config["n_steps"],
-        default_config["warmup_steps"],
-        default_config["evaluation_interval"],
-        default_config["save_interval"],
-        # Audio
-        default_config["in_sample_rate"],
-        default_config["out_sample_rate"],
-        default_config["wav_length"],
-        default_config["segment_length"],
-        default_config["phone_noise_ratio"],
-        default_config["vq_topk"],
-        default_config["training_time_vq"],
-        default_config["floor_noise_level"],
-        default_config["record_metrics"],
-        # Augmentation
-        aug_snr_str,
-        default_config["augmentation_formant_shift_probability"],
-        default_config["augmentation_formant_shift_semitone_min"],
-        default_config["augmentation_formant_shift_semitone_max"],
-        default_config["augmentation_reverb_probability"],
-        default_config["augmentation_lpf_probability"],
-        aug_lpf_str,
-        # Data
-        default_config["phone_extractor_file"],
-        default_config["pitch_estimator_file"],
-        default_config["in_ir_wav_dir"],
-        default_config["in_noise_wav_dir"],
-        in_test_wav_dir, default_config["pretrained_file"],
-        # Model
-        default_config["pitch_bins"],
-        default_config["hidden_channels"],
-        default_config["san"],
-        default_config["compile_convnext"],
-        default_config["compile_d4c"],
-        default_config["compile_discriminator"],
-        default_config["profile"]
-    ]
+# 停止関数
+def stop_training():
+    global training_process, is_terminated_by_user, training_tasks
+    is_terminated_by_user = True
+    if training_process and training_process.poll() is None:
+        training_process.kill()
+        gr.Info(locale_data["LNG_STOP_SUCCESS_MESSAGE"])
+    else:
+        gr.Info(locale_data["LNG_STOP_NO_PROCESS_MESSAGE"])
+    # キューを完全にクリアする
+    training_tasks.clear()
+    return gr.Button(interactive=True), gr.Button(interactive=False), gr.Button(interactive=False), gr.Markdown(locale_data["LNG_TASK_MONITOR"] + display_queue())
+
+# キューにタスクを追加する関数
+def add_to_queue(input_folder, output_folder, checkpoint, *args):
+    global training_tasks
+    # 既存のパスチェック
+    if not path_check(input_folder, output_folder):
+        return gr.Markdown(locale_data["LNG_TASK_MONITOR"] + display_queue()), gr.Button(interactive=True), gr.Button(interactive=False), gr.Button(interactive=False)
+    # フォルダ直下に音声ファイルがあるかチェック
+    if has_audio_files_in_root(input_folder):
+        gr.Warning(locale_data["LNG_NO_AUDIO_FILES_IN_ROOT_ALERT"])
+        return gr.Markdown(locale_data["LNG_TASK_MONITOR"] + display_queue()), gr.Button(interactive=True), gr.Button(interactive=False), gr.Button(interactive=False)
+    # サブフォルダに音声ファイルがあるかチェック
+    if not has_audio_files_in_subfolders(input_folder):
+        gr.Warning(locale_data["LNG_NO_AUDIO_FILES_IN_SUBFOLDERS_ALERT"])
+        return gr.Markdown(locale_data["LNG_TASK_MONITOR"] + display_queue()), gr.Button(interactive=True), gr.Button(interactive=False), gr.Button(interactive=False)
+    # 追加学習かどうかを判断
+    is_resume = False
+    is_manual_checkpoint = False
+    latest_checkpoint_path = os.path.join(output_folder, "checkpoint_latest.pt.gz")
+
+    if checkpoint and os.path.isfile(os.path.join(output_folder, checkpoint)):
+        # ユーザーが明示的にチェックポイントを指定した場合
+        if os.path.isfile(latest_checkpoint_path):
+            backup_path = os.path.join(output_folder, "checkpoint_latest.pt.gz.bk")
+            shutil.copy2(latest_checkpoint_path, backup_path)
+            gr.Info(locale_data["LNG_LATEST_CHECKPOINT_BACKUP"].format(backup_path=backup_path))
+        shutil.copy2(os.path.join(output_folder, checkpoint), latest_checkpoint_path)
+        is_resume = True
+        is_manual_checkpoint = True
+    elif os.path.isfile(latest_checkpoint_path):
+        # チェックポイントの指定がない、または`checkpoint_latest.pt.gz`が指定された場合
+        is_resume = True
+
+    # 追加学習の場合、n_stepsが既存のステップ数より大きいかチェック
+    if is_resume and not is_manual_checkpoint:
+        config_path = os.path.join(output_folder, "config.json")
+        if os.path.isfile(config_path):
+            try:
+                with open(config_path, "r", encoding="utf-8") as f:
+                    existing_config = json.load(f)
+                existing_steps = existing_config.get("n_steps", 0)
+                n_steps_val = args[15]
+                if n_steps_val <= existing_steps:
+                    gr.Warning(locale_data["LNG_RESUME_WARNING"].format(n_steps_val=n_steps_val, existing_steps=existing_steps))
+                    return gr.Markdown(locale_data["LNG_TASK_MONITOR"] + display_queue()), gr.Button(interactive=True), gr.Button(interactive=False), gr.Button(interactive=False)
+            except Exception as e:
+                gr.Warning(locale_data["LNG_CONFIG_LOAD_ERROR"].format(e=e))
+                return gr.Markdown(locale_data["LNG_TASK_MONITOR"] + display_queue()), gr.Button(interactive=True), gr.Button(interactive=False), gr.Button(interactive=False)
+        else:
+            gr.Warning(locale_data["LNG_CONFIG_NOT_FOUND_WARNING"])
+            is_resume = False
+    task_data = {
+        'input_folder': input_folder,
+        'output_folder': output_folder,
+        'is_resume': is_resume,
+        'config_params': args,
+        'status': 'pending'
+    }
+    training_tasks.append(task_data)
+    if is_resume:
+        gr.Info(locale_data["LNG_QUEUE_TASK_RESUMED"].format(output_folder=output_folder))
+    else:
+        gr.Info(locale_data["LNG_QUEUE_TASK_NEW"].format(output_folder=output_folder))
+    return gr.Markdown(locale_data["LNG_TASK_MONITOR"] + display_queue()), gr.Button(interactive=True), gr.Button(interactive=True), gr.Button(interactive=True)
+
+# キューの表示を更新する関数
+def display_queue():
+    global training_tasks
+    if not training_tasks:
+        return locale_data["LNG_TASK_MONITOR_EMPTY"]
+    display_text = ""
+    for i, task in enumerate(training_tasks):
+        status_text = ""
+        if task['status'] == 'pending':
+            status_text = locale_data["LNG_QUEUE_STATUS_PENDING"]
+        elif task['status'] == 'in_progress':
+            status_text = locale_data["LNG_QUEUE_STATUS_IN_PROGRESS"]
+        elif task['status'] == 'completed':
+            status_text = locale_data["LNG_QUEUE_STATUS_COMPLETED"]
+        elif task['status'] == 'error':
+            status_text = locale_data["LNG_QUEUE_STATUS_ERROR"]
+        elif task['status'] == 'stopped':
+            status_text = locale_data["LNG_QUEUE_STATUS_STOPPED"]
+        display_text += f"{i+1:02d} | {status_text} | `{task['output_folder']}` | n_steps: `{task['config_params'][15]}` | batch_size: `{task['config_params'][6]}`  \n"
+    return display_text
 
 # TensorBoardを起動する関数
 def start_tensorboard(output_folder):
@@ -251,170 +335,335 @@ def start_tensorboard(output_folder):
 
 # UI構築
 with gr.Blocks() as demo:
-    gr.HTML(f"<h1>{locale_data['title']}</h1><p style='font-size: 1.0em;'>Ver: {VERSION}</p>")
-
-    # --- Basic Settings ---
-    with gr.Row():
-        with gr.Column():
-            input_folder = gr.Textbox(label=locale_data["input_folder"], placeholder=locale_data["input_folder_place"], info=locale_data["input_folder_info"])
-            output_folder = gr.Textbox(label=locale_data["output_folder"], placeholder=locale_data["output_folder_place"], info=locale_data["output_folder_info"])
-            checkpoint = gr.Textbox(label=locale_data["checkpoint"], placeholder=locale_data["checkpoint_place"], info=locale_data["checkpoint_info"])
-    
-    # --- Main Training Parameters (まとめてAccordion化) ---
-    with gr.Accordion(locale_data["basic_training"], open=True):
-        with gr.Row():
-            n_steps = gr.Number(label="n_steps", minimum=1, step=1, value=default_config["n_steps"], interactive=True, info=locale_data["n_steps_info"])
-            batch_size = gr.Number(label="Batch Size", minimum=1, step=1, value=default_config["batch_size"], interactive=True, info=locale_data["batch_size_info"])
-            num_workers = gr.Number(label="Num Workers", minimum=0, step=1, value=default_config["num_workers"], interactive=True, info=locale_data["num_workers_info"])
-        with gr.Row():
-            save_interval = gr.Number(label="Save Interval", minimum=1, step=1, value=default_config["save_interval"], interactive=True, info=locale_data["save_interval_info"])
-            evaluation_interval = gr.Number(label="Evaluation Interval", minimum=1, step=1, value=default_config["evaluation_interval"], interactive=True, info=locale_data["evaluation_interval_info"])
-        
-    # --- Advanced options ---
-    with gr.Accordion(locale_data["advanced_options"], open=False):
-        
-        # --- Learning Rate / Optimizer ---
-        with gr.Accordion(locale_data["learning_rate_optimizer"], open=False):
+    gr.HTML(f"<h1>{locale_data['LNG_TITLE']}</h1><p style='font-size: 1.0em;'>Ver: {VERSION}</p>")
+    with gr.Tabs() as tabs:
+        # --- トレーニングタブ ---
+        with gr.Tab(locale_data["LNG_TAB_TRAIN"]):
+            gr.Markdown(locale_data["LNG_TRAIN_DESC"])
+            # --- 基本トレーニング設定 ---
             with gr.Row():
-                learning_rate_g = gr.Number(label="Learning Rate G", value=default_config["learning_rate_g"])
-                learning_rate_d = gr.Number(label="Learning Rate D", value=default_config["learning_rate_d"])
-                learning_rate_decay = gr.Number(label="Learning Rate Decay", value=default_config["learning_rate_decay"])
-                warmup_steps = gr.Number(label="Warmup Steps", value=default_config["warmup_steps"])
+                with gr.Column():
+                    input_folder = gr.Textbox(
+                        label=locale_data["LNG_INPUT_FOLDER"],
+                        placeholder=locale_data["LNG_INPUT_FOLDER_PLACE"],
+                        info=locale_data["LNG_INPUT_FOLDER_INFO"]
+                    )
+                    output_folder = gr.Textbox(
+                        label=locale_data["LNG_OUTPUT_FOLDER"],
+                        placeholder=locale_data["LNG_OUTPUT_FOLDER_PLACE"]
+                    )
+                    checkpoint = gr.Textbox(
+                        label=locale_data["LNG_CHECKPOINT"],
+                        placeholder=locale_data["LNG_CHECKPOINT_PLACE"]
+                    )
+            # --- Main Training Parameters---
+            with gr.Accordion(locale_data["LNG_BASIC_TRAINING"], open=True):
+                with gr.Row():
+                    n_steps = gr.Slider(
+                        minimum=0,maximum=100000,step=1000,
+                        value=default_config["n_steps"],
+                        label="n_steps",
+                        info=locale_data["LNG_N_STEPS_INFO"]
+                    )
+                    batch_size = gr.Slider(
+                        minimum=1,maximum=64,step=1,
+                        value=default_config["batch_size"],
+                        label="Batch Size",
+                        info=locale_data["LNG_BATCH_SIZE_INFO"]
+                    )
+                    num_workers = gr.Slider(
+                        minimum=0,maximum=64,step=1,
+                        value=default_config["num_workers"],
+                        label="Num Workers",
+                        info=locale_data["LNG_NUM_WORKERS_INFO"]
+                    )
+                with gr.Row():
+                    save_interval = gr.Slider(
+                        minimum=0,maximum=50000,step=100,
+                        value=default_config["save_interval"],
+                        label="Save Interval",
+                        info=locale_data["LNG_SAVE_INTERVAL_INFO"]
+                    )
+                    evaluation_interval = gr.Slider(
+                        minimum=0,maximum=50000,step=100,
+                        value=default_config["evaluation_interval"],
+                        label="Evaluation Interval",
+                        info=locale_data["LNG_EVALUATION_INTERVAL_INFO"]
+                    )
+            # --- 詳細設定 ---
+            with gr.Accordion(locale_data["LNG_ADVANCED_OPTIONS"], open=False):
+                # --- Learning Rate / Optimizer ---
+                with gr.Accordion(locale_data["LNG_LEARNING_RATE_OPTIMIZER"], open=False):
+                    with gr.Row():
+                        learning_rate_g = gr.Number(label="Learning Rate G", value=default_config["learning_rate_g"])
+                        learning_rate_d = gr.Number(label="Learning Rate D", value=default_config["learning_rate_d"])
+                        learning_rate_decay = gr.Number(label="Learning Rate Decay", value=default_config["learning_rate_decay"])
+                        warmup_steps = gr.Number(label="Warmup Steps", value=default_config["warmup_steps"])
+                    with gr.Row():
+                        adam_betas_1 = gr.Number(label="Adam Betas 1", value=default_config["adam_betas"][0])
+                        adam_betas_2 = gr.Number(label="Adam Betas 2", value=default_config["adam_betas"][1])
+                        adam_eps = gr.Number(label="Adam Eps", value=default_config["adam_eps"])
+                # --- Loss Weights ---
+                with gr.Accordion(locale_data["LNG_LOSS_WEIGHTS"], open=False):
+                    with gr.Row():
+                        grad_weight_loudness = gr.Number(label="Grad Weight Loudness", value=default_config["grad_weight_loudness"], step=0.1, precision=2)
+                        grad_weight_mel = gr.Number(label="Grad Weight Mel", value=default_config["grad_weight_mel"], step=0.1, precision=2)
+                        grad_weight_ap = gr.Number(label="Grad Weight AP", value=default_config["grad_weight_ap"], step=0.1, precision=2)
+                    with gr.Row():
+                        grad_weight_adv = gr.Number(label="Grad Weight Adv", value=default_config["grad_weight_adv"], step=0.1, precision=2)
+                        grad_weight_fm = gr.Number(label="Grad Weight FM", value=default_config["grad_weight_fm"], step=0.1, precision=2)
+                        grad_balancer_ema_decay = gr.Number(label="Grad Balancer EMA Decay", value=default_config["grad_balancer_ema_decay"])
+                # --- Augmentation options ---
+                with gr.Accordion(locale_data["LNG_AUGMENTATION_OPTIONS"], open=False):
+                    with gr.Row():
+                        aug_formant_shift_prob = gr.Slider(minimum=0.0, maximum=1.0, label="Formant Shift Probability", value=default_config["augmentation_formant_shift_probability"])
+                        aug_formant_shift_min = gr.Number(label="Formant Shift Semitone Min", value=default_config["augmentation_formant_shift_semitone_min"])
+                        aug_formant_shift_max = gr.Number(label="Formant Shift Semitone Max", value=default_config["augmentation_formant_shift_semitone_max"])
+                    with gr.Row():
+                        aug_reverb_prob = gr.Slider(minimum=0.0, maximum=1.0, label="Reverb Probability", value=default_config["augmentation_reverb_probability"])
+                        aug_lpf_prob = gr.Slider(minimum=0.0, maximum=1.0, label="LPF Probability", value=default_config["augmentation_lpf_probability"])
+                    with gr.Row():
+                        aug_snr_candidates = gr.Textbox(label="SNR Candidates (comma-separated)", value=", ".join(map(str, default_config["augmentation_snr_candidates"])))
+                        aug_lpf_cutoff_candidates = gr.Textbox(label="LPF Cutoff Freq Candidates (comma-separated)", value=", ".join(map(str, default_config["augmentation_lpf_cutoff_freq_candidates"])))
+                # --- Audio / Model ---
+                with gr.Accordion(locale_data["LNG_AUDIO_MODEL"], open=False):
+                    with gr.Row():
+                        in_sample_rate = gr.Number(label="In Sample Rate", value=default_config["in_sample_rate"], interactive=False, info=locale_data["LNG_IN_SAMPLE_RATE_INFO"])
+                        out_sample_rate = gr.Number(label="Out Sample Rate", value=default_config["out_sample_rate"], interactive=False, info=locale_data["LNG_OUT_SAMPLE_RATE_INFO"])
+                        wav_length = gr.Number(label="Wav Length", value=default_config["wav_length"])
+                        segment_length = gr.Number(label="Segment Length", value=default_config["segment_length"])
+                    with gr.Row():
+                        phone_noise_ratio = gr.Slider(minimum=0.0, maximum=1.0, label="Phone Noise Ratio", value=default_config["phone_noise_ratio"])
+                        floor_noise_level = gr.Number(label="Floor Noise Level", value=default_config["floor_noise_level"])
+                        vq_topk = gr.Number(label="VQ Top-K", value=default_config["vq_topk"], step=1)
+                        training_time_vq = gr.Dropdown(label="Training Time VQ", choices=["none", "self", "random"], value=default_config["training_time_vq"])
+                    with gr.Row():
+                        pitch_bins = gr.Number(label="Pitch Bins", value=default_config["pitch_bins"], interactive=False)
+                        hidden_channels = gr.Number(label="Hidden Channels", value=default_config["hidden_channels"])
+                # --- File Paths ---
+                with gr.Accordion(locale_data["LNG_FILE_PATHS"], open=False):
+                    with gr.Column():
+                        in_ir_wav_dir = gr.Textbox(label="In IR Wav Dir", value=default_config["in_ir_wav_dir"])
+                        in_noise_wav_dir = gr.Textbox(label="In Noise Wav Dir", value=default_config["in_noise_wav_dir"])
+                        in_test_wav_dir = gr.Textbox(label="In Test Wav Dir", value=default_config["in_test_wav_dir"])
+                        pretrained_file = gr.Textbox(label="Pretrained File", value=default_config["pretrained_file"])
+                        phone_extractor_file = gr.Textbox(label="Phone Extractor File", value=default_config["phone_extractor_file"])
+                        pitch_estimator_file = gr.Textbox(label="Pitch Estimator File", value=default_config["pitch_estimator_file"])
+                # --- Performance / Debug ---
+                with gr.Accordion(locale_data["LNG_PERFORMANCE_DEBUG"], open=False):
+                    with gr.Row():
+                        with gr.Column():
+                            use_amp = gr.Checkbox(label="Use AMP", value=default_config["use_amp"])
+                        with gr.Column():
+                            san = gr.Checkbox(label="SAN (Discriminator)", value=default_config["san"])
+                        with gr.Column():
+                            record_metrics = gr.Checkbox(label="Record Metrics to TensorBoard", value=default_config["record_metrics"])
+                        with gr.Column():
+                            profile = gr.Checkbox(label="Profile", value=default_config["profile"])
+                    with gr.Row():
+                        compile_convnext = gr.Checkbox(label="Compile ConvNext", value=default_config["compile_convnext"])
+                        compile_d4c = gr.Checkbox(label="Compile D4c", value=default_config["compile_d4c"])
+                        compile_discriminator = gr.Checkbox(label="Compile Discriminator", value=default_config["compile_discriminator"])
+            # --- ボタン類 ---
             with gr.Row():
-                adam_betas_1 = gr.Number(label="Adam Betas 1", value=default_config["adam_betas"][0])
-                adam_betas_2 = gr.Number(label="Adam Betas 2", value=default_config["adam_betas"][1])
-                adam_eps = gr.Number(label="Adam Eps", value=default_config["adam_eps"])
-
-        # --- Loss Weights ---
-        with gr.Accordion(locale_data["loss_weights"], open=False):
-            with gr.Row():
-                grad_weight_loudness = gr.Number(label="Grad Weight Loudness", value=default_config["grad_weight_loudness"], step=0.1, precision=2)
-                grad_weight_mel = gr.Number(label="Grad Weight Mel", value=default_config["grad_weight_mel"], step=0.1, precision=2)
-                grad_weight_ap = gr.Number(label="Grad Weight AP", value=default_config["grad_weight_ap"], step=0.1, precision=2)
-            with gr.Row():
-                grad_weight_adv = gr.Number(label="Grad Weight Adv", value=default_config["grad_weight_adv"], step=0.1, precision=2)
-                grad_weight_fm = gr.Number(label="Grad Weight FM", value=default_config["grad_weight_fm"], step=0.1, precision=2)
-                grad_balancer_ema_decay = gr.Number(label="Grad Balancer EMA Decay", value=default_config["grad_balancer_ema_decay"])
-
-        # --- Augmentation options ---
-        with gr.Accordion(locale_data["augmentation_options"], open=False):
-            with gr.Row():
-                aug_formant_shift_prob = gr.Slider(minimum=0.0, maximum=1.0, label="Formant Shift Probability", value=default_config["augmentation_formant_shift_probability"])
-                aug_formant_shift_min = gr.Number(label="Formant Shift Semitone Min", value=default_config["augmentation_formant_shift_semitone_min"])
-                aug_formant_shift_max = gr.Number(label="Formant Shift Semitone Max", value=default_config["augmentation_formant_shift_semitone_max"])
-            with gr.Row():
-                aug_reverb_prob = gr.Slider(minimum=0.0, maximum=1.0, label="Reverb Probability", value=default_config["augmentation_reverb_probability"])
-                aug_lpf_prob = gr.Slider(minimum=0.0, maximum=1.0, label="LPF Probability", value=default_config["augmentation_lpf_probability"])
-            with gr.Row():
-                aug_snr_candidates = gr.Textbox(label="SNR Candidates (comma-separated)", value=", ".join(map(str, default_config["augmentation_snr_candidates"])))
-                aug_lpf_cutoff_candidates = gr.Textbox(label="LPF Cutoff Freq Candidates (comma-separated)", value=", ".join(map(str, default_config["augmentation_lpf_cutoff_freq_candidates"])))
+                add_to_queue_button = gr.Button(value=locale_data["LNG_ADD_TASK_BUTTON"], variant="primary")
+                start_button = gr.Button(value=locale_data["LNG_START_TRAINING_BUTTON"], variant="primary", interactive=False)
+                stop_button = gr.Button(value=locale_data["LNG_STOP_TRAINING_BUTTON"], variant="stop", interactive=False)
+                tensorboard_button = gr.Button(value=locale_data["LNG_TENSORBOARD_BUTTON"])
                 
-        # --- Audio / Model ---
-        with gr.Accordion(locale_data["audio_model"], open=False):
-            with gr.Row():
-                in_sample_rate = gr.Number(label="In Sample Rate", value=default_config["in_sample_rate"], interactive=False, info=locale_data["in_sample_rate_info"])
-                out_sample_rate = gr.Number(label="Out Sample Rate", value=default_config["out_sample_rate"], interactive=False, info=locale_data["out_sample_rate_info"])
-                wav_length = gr.Number(label="Wav Length", value=default_config["wav_length"])
-                segment_length = gr.Number(label="Segment Length", value=default_config["segment_length"])
-            with gr.Row():
-                phone_noise_ratio = gr.Slider(minimum=0.0, maximum=1.0, label="Phone Noise Ratio", value=default_config["phone_noise_ratio"])
-                floor_noise_level = gr.Number(label="Floor Noise Level", value=default_config["floor_noise_level"])
-                vq_topk = gr.Number(label="VQ Top-K", value=default_config["vq_topk"], step=1)
-                training_time_vq = gr.Dropdown(label="Training Time VQ", choices=["none", "self", "random"], value=default_config["training_time_vq"])
-            with gr.Row():
-                pitch_bins = gr.Number(label="Pitch Bins", value=default_config["pitch_bins"], interactive=False)
-                hidden_channels = gr.Number(label="Hidden Channels", value=default_config["hidden_channels"])
-
-        # --- File Paths ---
-        with gr.Accordion(locale_data["file_paths"], open=False):
+            # キューの状態表示
+            queue_status_box = gr.Markdown(locale_data["LNG_TASK_MONITOR"] + locale_data["LNG_TASK_MONITOR_EMPTY"])
+            
+            # --- Event Handlers ---
+            all_inputs = [
+                # Training
+                learning_rate_g, learning_rate_d, learning_rate_decay, adam_betas_1, adam_betas_2, adam_eps,
+                batch_size, grad_weight_loudness, grad_weight_mel, grad_weight_ap, grad_weight_adv,
+                grad_weight_fm, grad_balancer_ema_decay, use_amp, num_workers, n_steps, warmup_steps,
+                evaluation_interval, save_interval,
+                # Audio
+                in_sample_rate, out_sample_rate, wav_length, segment_length, phone_noise_ratio, vq_topk,
+                training_time_vq, floor_noise_level, record_metrics,
+                # Augmentation
+                aug_snr_candidates, aug_formant_shift_prob, aug_formant_shift_min, aug_formant_shift_max,
+                aug_reverb_prob, aug_lpf_prob, aug_lpf_cutoff_candidates,
+                # Data
+                phone_extractor_file, pitch_estimator_file, in_ir_wav_dir, in_noise_wav_dir,
+                in_test_wav_dir, pretrained_file,
+                # Model
+                pitch_bins, hidden_channels, san, compile_convnext, compile_d4c, compile_discriminator, profile
+            ]
+            
+            add_to_queue_button.click(add_to_queue, inputs=[input_folder, output_folder, checkpoint] + all_inputs, outputs=[queue_status_box, add_to_queue_button, start_button, stop_button])
+            start_button.click(process_training_queue_generator, inputs=None, outputs=[start_button, add_to_queue_button, stop_button, queue_status_box])
+            stop_button.click(stop_training, inputs=None, outputs=[add_to_queue_button, start_button, stop_button, queue_status_box])
+            tensorboard_button.click(
+                lambda output_folder_val: gr.Warning(locale_data["LNG_TENSORBOARD_ALERT"]) if not output_folder_val else start_tensorboard(output_folder_val),
+                inputs=[output_folder],
+                outputs=None,
+            )
+            
+        # --- 「データセットの前処理」タブ ---
+        with gr.Tab(locale_data["LNG_TAB_DATASET_PROCESSING"]):
+            gr.Markdown(locale_data["LNG_DATASET_PROCESSING_DESC"])
             with gr.Column():
-                in_ir_wav_dir = gr.Textbox(label="In IR Wav Dir", value=default_config["in_ir_wav_dir"])
-                in_noise_wav_dir = gr.Textbox(label="In Noise Wav Dir", value=default_config["in_noise_wav_dir"])
-                in_test_wav_dir = gr.Textbox(label="In Test Wav Dir", value=default_config["in_test_wav_dir"])
-                pretrained_file = gr.Textbox(label="Pretrained File", value=default_config["pretrained_file"])
-                phone_extractor_file = gr.Textbox(label="Phone Extractor File", value=default_config["phone_extractor_file"])
-                pitch_estimator_file = gr.Textbox(label="Pitch Estimator File", value=default_config["pitch_estimator_file"])
+                input_dir_prep = gr.Textbox(
+                    label=locale_data["LNG_INPUT_DIR_PREP_LABEL"],
+                    placeholder=locale_data["LNG_INPUT_DIR_PREP_PLACE"]
+                )
+                output_dir_prep = gr.Textbox(
+                    label=locale_data["LNG_OUTPUT_DIR_PREP_LABEL"],
+                    placeholder=locale_data["LNG_OUTPUT_DIR_PREP_PLACE"]
+                )
+                with gr.Row():
+                    segment_duration_sec = gr.Slider(
+                        minimum=1,maximum=30,step=1,value=4,
+                        label=locale_data["LNG_SEGMENT_DURATION_LABEL"],
+                        info=locale_data["LNG_SEGMENT_DURATION_INFO"]
+                    )
+                    output_samplerate = gr.Dropdown(
+                        label=locale_data["LNG_OUTPUT_SAMPLERATE_LABEL"],
+                        choices=["8000", "11025", "16000", "22050", "32000", "44100", "48000"],
+                        value="16000",
+                        info=locale_data["LNG_OUTPUT_SAMPLERATE_INFO"],
+                    )
+                    output_format = gr.Dropdown(
+                        label=locale_data["LNG_OUTPUT_FORMAT_LABEL"],
+                        choices=["wav", "flac"],
+                        value="wav",
+                        info=locale_data["LNG_OUTPUT_FORMAT_INFO"]
+                    )
+                with gr.Row():
+                    enable_silence_removal = gr.Checkbox(
+                        label=locale_data["LNG_SILENCE_REMOVAL_OPTIONS"],
+                        info=locale_data["LNG_SILENCE_REMOVAL_OPTIONS_INFO"],
+                        value=True
+                    )
+                    silence_threshold_dbfs = gr.Slider(
+                        minimum=-60,maximum=0,step=1,value=-40,
+                        label=locale_data["LNG_SILENCE_THRESHOLD_LABEL"],
+                        info=locale_data["LNG_SILENCE_THRESHOLD_INFO"]
+                    )
+                    min_silence_duration_ms = gr.Slider(
+                        minimum=100,maximum=5000,step=100,value=500,
+                        label=locale_data["LNG_MIN_SILENCE_DURATION_LABEL"],
+                        info=locale_data["LNG_MIN_SILENCE_DURATION_INFO"]
+                    )             
+                split_button = gr.Button(locale_data["LNG_SPLIT_BUTTON"], variant="primary")
+                status_markdown = gr.Markdown(locale_data["LNG_STATUS_WAITING"])
+            # 無音削除処理
+            def remove_silence(waveform, sample_rate, silence_threshold_dbfs, min_silence_duration_ms):
+                frame_size = int(0.02 * sample_rate)
+                hop_size = frame_size // 2
+                num_frames = max(1, (waveform.size(1) - frame_size) // hop_size + 1)
+                energy = []
+                for i in range(num_frames):
+                    start = i * hop_size
+                    frame = waveform[:, start:start+frame_size]
+                    rms = torch.sqrt(torch.mean(frame**2))
+                    rms_db = 20 * torch.log10(rms + 1e-9)
+                    energy.append(rms_db.item())
+                energy = torch.tensor(energy)
+                is_silent = energy < silence_threshold_dbfs
+                min_silence_frames = int((min_silence_duration_ms / 1000) * sample_rate / hop_size)
+                keep_samples = torch.ones(waveform.size(1), dtype=torch.bool)
+                silent_run = 0
+                run_start = 0
+                for i, silent in enumerate(is_silent):
+                    if silent:
+                        if silent_run == 0:
+                            run_start = i
+                        silent_run += 1
+                    else:
+                        if silent_run >= min_silence_frames:
+                            start_sample = run_start * hop_size
+                            end_sample = (i * hop_size) + frame_size
+                            keep_samples[start_sample:end_sample] = False
+                        silent_run = 0
+                if silent_run >= min_silence_frames:
+                    start_sample = run_start * hop_size
+                    end_sample = waveform.size(1)
+                    keep_samples[start_sample:end_sample] = False
+                return waveform[:, keep_samples]
+            def split_audio_files(input_folder, output_folder, duration, sample_rate, output_format, enable_silence_removal, silence_threshold_dbfs, min_silence_duration_ms):
+                if not input_folder:
+                    gr.Warning(locale_data["LNG_ERROR_NO_INPUT_FOLDER"])
+                    # ここで `return` を使って関数の実行を終了させる
+                    return
+                input_path = Path(input_folder)
+                if output_folder:
+                    output_dir = Path(output_folder)
+                else:
+                    base_output_dir_name = f"slice_{output_format}"
+                    output_dir = input_path / base_output_dir_name
+                    counter = 1
+                    while output_dir.exists():
+                        counter += 1
+                        output_dir = input_path / f"{base_output_dir_name}_{counter:03d}"
+                try:
+                    output_dir.mkdir(parents=True, exist_ok=True)
+                except Exception as e:
+                    gr.Warning(locale_data["LNG_ERROR_OUTPUT_FOLDER_CREATION"].format(output_dir=output_dir, e=e))
+                    return
+                audio_extensions = ["*.wav", "*.flac", "*.ogg", "*.aiff", "*.mp3"]
+                audio_files = []
+                for ext in audio_extensions:
+                    audio_files.extend(list(input_path.glob(ext)))
+                if not audio_files:
+                    gr.Warning(locale_data["LNG_WARNING_NO_AUDIO_FILES"])
+                    return
+                processed_count = 0
+                skipped_count = 0
+                failed_files = []
+                file_counter_in = 1
+                total_files = len(audio_files)
 
-        # --- Performance / Debug ---
-        with gr.Accordion(locale_data["performance_debug"], open=False):
-            with gr.Row():
-                with gr.Column():
-                    use_amp = gr.Checkbox(label="Use AMP", value=default_config["use_amp"])
-                    gr.Markdown(locale_data["use_amp_info"])
-                with gr.Column():
-                    san = gr.Checkbox(label="SAN (Discriminator)", value=default_config["san"])
-                    gr.Markdown(locale_data["san_info"])
-                with gr.Column():
-                    record_metrics = gr.Checkbox(label="Record Metrics to TensorBoard", value=default_config["record_metrics"])
-                    gr.Markdown(locale_data["record_metrics_info"])
-                with gr.Column():
-                    profile = gr.Checkbox(label="Profile", value=default_config["profile"])
-                    gr.Markdown(locale_data["profile_info"])
-            with gr.Row():
-                compile_convnext = gr.Checkbox(label="Compile ConvNext", value=default_config["compile_convnext"])
-                compile_d4c = gr.Checkbox(label="Compile D4c", value=default_config["compile_d4c"])
-                compile_discriminator = gr.Checkbox(label="Compile Discriminator", value=default_config["compile_discriminator"])
+                for audio_path in audio_files:
 
-    # --- Buttons ---
-    with gr.Row():
-        reset_button = gr.Button(value=locale_data["reset"])
-        tensorboard_button = gr.Button(value=locale_data["tensorboard"])
-    with gr.Column():
-        train_button = gr.Button(value=locale_data["train"], variant="primary")
-
-    # --- Event Handlers ---
-    all_inputs = [
-        # Training
-        learning_rate_g, learning_rate_d, learning_rate_decay, adam_betas_1, adam_betas_2, adam_eps,
-        batch_size, grad_weight_loudness, grad_weight_mel, grad_weight_ap, grad_weight_adv,
-        grad_weight_fm, grad_balancer_ema_decay, use_amp, num_workers, n_steps, warmup_steps,
-        evaluation_interval, save_interval,
-        # Audio
-        in_sample_rate, out_sample_rate, wav_length, segment_length, phone_noise_ratio, vq_topk,
-        training_time_vq, floor_noise_level, record_metrics,
-        # Augmentation
-        aug_snr_candidates, aug_formant_shift_prob, aug_formant_shift_min, aug_formant_shift_max,
-        aug_reverb_prob, aug_lpf_prob, aug_lpf_cutoff_candidates,
-        # Data
-        phone_extractor_file, pitch_estimator_file, in_ir_wav_dir, in_noise_wav_dir,
-        in_test_wav_dir, pretrained_file,
-        # Model
-        pitch_bins, hidden_channels, san, compile_convnext, compile_d4c, compile_discriminator, profile
-    ]
-
-    train_button.click(
-        lambda input_folder_val, output_folder_val, checkpoint_val, *args: (
-            (generate_config(*args, input_folder_val, output_folder_val) or run_training(input_folder_val, output_folder_val, checkpoint_val))
-            if path_check(input_folder_val, output_folder_val) else None
-        ),
-        inputs=[input_folder, output_folder, checkpoint] + all_inputs,
-        outputs=None,
-    )
-    
-    all_outputs = [
-        input_folder, output_folder, checkpoint,
-        learning_rate_g, learning_rate_d, learning_rate_decay, adam_betas_1, adam_betas_2, adam_eps,
-        batch_size, grad_weight_loudness, grad_weight_mel, grad_weight_ap, grad_weight_adv,
-        grad_weight_fm, grad_balancer_ema_decay, use_amp, num_workers, n_steps, warmup_steps,
-        evaluation_interval, save_interval,
-        in_sample_rate, out_sample_rate, wav_length, segment_length, phone_noise_ratio, vq_topk,
-        training_time_vq, floor_noise_level, record_metrics,
-        aug_snr_candidates, aug_formant_shift_prob, aug_formant_shift_min, aug_formant_shift_max,
-        aug_reverb_prob, aug_lpf_prob, aug_lpf_cutoff_candidates,
-        phone_extractor_file, pitch_estimator_file, in_ir_wav_dir, in_noise_wav_dir,
-        in_test_wav_dir, pretrained_file,
-        pitch_bins, hidden_channels, san, compile_convnext, compile_d4c, compile_discriminator, profile
-    ]
-    
-    reset_button.click(
-        reset_inputs,
-        outputs=all_outputs
-    )
-
-    tensorboard_button.click(
-        lambda output_folder_val: gr.Warning(locale_data["tensorboard_alert"]) if not output_folder_val else start_tensorboard(output_folder_val),
-        inputs=[output_folder],
-        outputs=None,
-    )
-
+                    processed_count += 1
+                    progress_percent = (processed_count / total_files) * 100
+                    # 進捗状況と現在処理中のファイル名をリアルタイムでyield
+                    yield f"Processing {processed_count}/{total_files} files ({progress_percent:.1f}%): **{audio_path.name}**"
+                    try:
+                        waveform, original_sr = torchaudio.load(audio_path)
+                        if waveform.size(0) > 1:
+                            waveform = torch.mean(waveform, dim=0, keepdim=True)
+                        if original_sr != int(sample_rate):
+                            resampler = torchaudio.transforms.Resample(orig_freq=original_sr, new_freq=int(sample_rate))
+                            waveform = resampler(waveform)
+                        if enable_silence_removal:
+                            processed_waveform = remove_silence(
+                                waveform, int(sample_rate), silence_threshold_dbfs, min_silence_duration_ms
+                            )
+                        else:
+                            processed_waveform = waveform
+                        total_samples = processed_waveform.size(1)
+                        segment_length_samples = int(duration * int(sample_rate))
+                        # 指定秒数未満のファイルをスキップする
+                        if total_samples < segment_length_samples:
+                            skipped_count += 1
+                            continue                      
+                        start_sample = 0
+                        file_counter = 1
+                        while start_sample + segment_length_samples <= total_samples:
+                            segment_data = processed_waveform[:, start_sample : start_sample + segment_length_samples]
+                            new_file_prefix = f"{file_counter_in:04d}"
+                            file_name = f"{new_file_prefix}_{file_counter:04d}.{output_format}"
+                            output_file_path = output_dir / file_name
+                            torchaudio.save(output_file_path, segment_data, int(sample_rate), format=output_format)
+                            start_sample += segment_length_samples
+                            file_counter += 1
+                        file_counter_in += 1
+                    except Exception as e:
+                        failed_files.append(f"{audio_path.name}: {e}")
+                if failed_files:
+                    failed_message = "<br>".join(failed_files)
+                    yield locale_data["LNG_COMPLETE_WITH_FAILURES"].format(processed_count=processed_count, len=len(failed_files), failed_message=failed_message)
+                else:
+                    yield locale_data["LNG_COMPLETE_SUCCESS"].format(processed_count=processed_count, skipped_count=skipped_count, output_dir=output_dir)
+            split_button.click(
+                fn=split_audio_files,
+                inputs=[input_dir_prep, output_dir_prep, segment_duration_sec, output_samplerate, output_format, enable_silence_removal, silence_threshold_dbfs, min_silence_duration_ms],
+                outputs=status_markdown
+            )
 demo.launch(inbrowser=True)
