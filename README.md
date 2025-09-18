@@ -1,4 +1,8 @@
 # Beatrice Trainer v2 rc.0 対応　Unofficial Simple WebUI
+
+<img width="1054" height="849" alt="webui" src="https://github.com/user-attachments/assets/79bc04ee-399e-4762-b6fb-7d3d0cd7547b" />
+
+
 ### バージョン履歴
 - **2025.09.18**：トレーニングタスクの複数登録機能、簡易的な音声ファイルスライサーを実装
 - **2025.09.13**：torchの警告が多かったので各種警告を表示させないように修正
@@ -25,8 +29,8 @@
 必要な環境は自動で構築されます（インストールはせずダウンロードして解凍するだけ）。  
 ただし環境によってはMicrosoft Visual Studioのインストールが必要。  
 
-### 英語対応
-一応日本語と英語の2カ国語対応ですが翻訳のクオリティには期待しないでください。
+### English support
+It supports both Japanese and English, but please don’t expect too much from the translation quality...
 
 
 ---
