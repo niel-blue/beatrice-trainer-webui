@@ -13,7 +13,7 @@
 
 ## プログラム概要
 
-本プログラムは、AIボイスチェンジャーVST「Beatrice」用の学習キット「Beatrice Trainer」を簡単に導入出来るようにしWebUI機能を追加したものです。  
+本プログラムは、AIボイスチェンジャー「Beatrice」用の学習キット「Beatrice Trainer」を簡単に導入出来るようにしWebUI機能を追加したものです。  
 『Beatrice』と『Beatrice Trainer』に関する詳細は、以下のリンクをご確認ください
 
 - [Beatrice (AIボイスチェンジャー VST)](https://prj-beatrice.com/)
