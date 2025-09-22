@@ -16,7 +16,7 @@ import queue
 import re
 
 # バージョン情報
-VERSION = "25.09.18"
+VERSION = "25.09.22"
 
 # グローバル変数など
 torchaudio.set_audio_backend("sox_io")
@@ -28,6 +28,7 @@ current_task = None
 training_thread = None
 current_dir = os.getcwd()
 default_config_path = os.path.join(current_dir, "assets", "default_config.json")
+is_slicing_terminated_by_user = False # 新しいグローバル変数
 
 # 言語設定ファイルの読み込み
 def load_locale():
@@ -56,27 +57,24 @@ def path_check(input_folder, output_folder):
         gr.Warning(locale_data["LNG_OUTPUT_FOLDER_ALERT"])
         return False
     return True
-    
+
 # 入力フォルダ直下に音声ファイルがあるかチェックする関数
 def has_audio_files_in_root(input_folder):
     audio_extensions = ["*.wav", "*.flac", "*.ogg", "*.aiff", "*.mp3"]
     input_path = Path(input_folder)
-    for ext in audio_extensions:    # input_folder直下のみを検索
+    for ext in audio_extensions:
         if any(input_path.glob(ext)):
             return True
     return False
+
 # 入力フォルダのサブフォルダに音声ファイルがあるかチェックする関数
 def has_audio_files_in_subfolders(input_folder):
     audio_extensions = ["*.wav", "*.flac", "*.ogg", "*.aiff", "*.mp3"]
     input_path = Path(input_folder)
-    # サブフォルダ内を再帰的に検索
     for ext in audio_extensions:
-        # "**/" はサブフォルダを含む再帰的な検索を意味します。
-        if any(input_path.glob(f"**/{ext}")):
-            # 直下を除外するために、サブフォルダにのみ存在するファイルを確認
-            for f in input_path.glob(f"**/{ext}"):
-                if f.parent != input_path:
-                    return True
+        for f in input_path.glob(f"**/{ext}"):
+            if f.parent != input_path:
+                return True
     return False
 
 # カンマ区切りの文字列をfloatのリストに変換するヘルパー関数
@@ -190,13 +188,13 @@ def start_training_command(input_folder, output_folder, is_resume):
 def process_training_queue_generator():
     global training_process, is_terminated_by_user, training_tasks
     # 開始時にボタンを無効化
-    yield gr.Button(interactive=False), gr.Button(interactive=False), gr.Button(interactive=True), gr.Markdown(locale_data["LNG_TASK_MONITOR"] + display_queue())
+    yield gr.Button(interactive=False), gr.Button(interactive=False), gr.Button(interactive=True), gr.Markdown(display_queue())
     for task in training_tasks:
         if is_terminated_by_user:
             break
         if task['status'] == 'pending':
             task['status'] = 'in_progress'
-            yield gr.Button(interactive=False), gr.Button(interactive=False), gr.Button(interactive=True), gr.Markdown(locale_data["LNG_TASK_MONITOR"] + display_queue())
+            yield gr.Button(interactive=False), gr.Button(interactive=False), gr.Button(interactive=True), gr.Markdown(display_queue())
             input_folder = task['input_folder']
             output_folder = task['output_folder']
             is_resume = task['is_resume']
@@ -206,7 +204,7 @@ def process_training_queue_generator():
             generate_config(*config_params, input_folder=input_folder, output_folder=output_folder)
             start_training_command(input_folder, output_folder, is_resume)
             while training_process.poll() is None:
-                yield gr.Button(interactive=False), gr.Button(interactive=False), gr.Button(interactive=True), gr.Markdown(locale_data["LNG_TASK_MONITOR"] + display_queue())
+                yield gr.Button(interactive=False), gr.Button(interactive=False), gr.Button(interactive=True), gr.Markdown(display_queue())
                 time.sleep(1)
             if not is_terminated_by_user and training_process.poll() == 0:
                 task['status'] = 'completed'
@@ -225,7 +223,7 @@ def process_training_queue_generator():
     is_terminated_by_user = False
     
     # 終了後にボタンを有効化
-    yield gr.Button(interactive=True), gr.Button(interactive=True), gr.Button(interactive=False), gr.Markdown(locale_data["LNG_TASK_MONITOR"] + display_queue())
+    yield gr.Button(interactive=True), gr.Button(interactive=True), gr.Button(interactive=False), gr.Markdown(display_queue())
 
 # 停止関数
 def stop_training():
@@ -238,22 +236,22 @@ def stop_training():
         gr.Info(locale_data["LNG_STOP_NO_PROCESS_MESSAGE"])
     # キューを完全にクリアする
     training_tasks.clear()
-    return gr.Button(interactive=True), gr.Button(interactive=False), gr.Button(interactive=False), gr.Markdown(locale_data["LNG_TASK_MONITOR"] + display_queue())
+    return gr.Button(interactive=True), gr.Button(interactive=False), gr.Button(interactive=False), gr.Markdown(display_queue())
 
 # キューにタスクを追加する関数
 def add_to_queue(input_folder, output_folder, checkpoint, *args):
     global training_tasks
     # 既存のパスチェック
     if not path_check(input_folder, output_folder):
-        return gr.Markdown(locale_data["LNG_TASK_MONITOR"] + display_queue()), gr.Button(interactive=True), gr.Button(interactive=False), gr.Button(interactive=False)
+        return gr.Markdown(display_queue()), gr.Button(interactive=True), gr.Button(interactive=False), gr.Button(interactive=False)
     # フォルダ直下に音声ファイルがあるかチェック
     if has_audio_files_in_root(input_folder):
         gr.Warning(locale_data["LNG_NO_AUDIO_FILES_IN_ROOT_ALERT"])
-        return gr.Markdown(locale_data["LNG_TASK_MONITOR"] + display_queue()), gr.Button(interactive=True), gr.Button(interactive=False), gr.Button(interactive=False)
+        return gr.Markdown(display_queue()), gr.Button(interactive=True), gr.Button(interactive=False), gr.Button(interactive=False)
     # サブフォルダに音声ファイルがあるかチェック
     if not has_audio_files_in_subfolders(input_folder):
         gr.Warning(locale_data["LNG_NO_AUDIO_FILES_IN_SUBFOLDERS_ALERT"])
-        return gr.Markdown(locale_data["LNG_TASK_MONITOR"] + display_queue()), gr.Button(interactive=True), gr.Button(interactive=False), gr.Button(interactive=False)
+        return gr.Markdown(display_queue()), gr.Button(interactive=True), gr.Button(interactive=False), gr.Button(interactive=False)
     # 追加学習かどうかを判断
     is_resume = False
     is_manual_checkpoint = False
@@ -283,10 +281,8 @@ def add_to_queue(input_folder, output_folder, checkpoint, *args):
                 n_steps_val = args[15]
                 if n_steps_val <= existing_steps:
                     gr.Warning(locale_data["LNG_RESUME_WARNING"].format(n_steps_val=n_steps_val, existing_steps=existing_steps))
-                    return gr.Markdown(locale_data["LNG_TASK_MONITOR"] + display_queue()), gr.Button(interactive=True), gr.Button(interactive=False), gr.Button(interactive=False)
             except Exception as e:
                 gr.Warning(locale_data["LNG_CONFIG_LOAD_ERROR"].format(e=e))
-                return gr.Markdown(locale_data["LNG_TASK_MONITOR"] + display_queue()), gr.Button(interactive=True), gr.Button(interactive=False), gr.Button(interactive=False)
         else:
             gr.Warning(locale_data["LNG_CONFIG_NOT_FOUND_WARNING"])
             is_resume = False
@@ -302,7 +298,7 @@ def add_to_queue(input_folder, output_folder, checkpoint, *args):
         gr.Info(locale_data["LNG_QUEUE_TASK_RESUMED"].format(output_folder=output_folder))
     else:
         gr.Info(locale_data["LNG_QUEUE_TASK_NEW"].format(output_folder=output_folder))
-    return gr.Markdown(locale_data["LNG_TASK_MONITOR"] + display_queue()), gr.Button(interactive=True), gr.Button(interactive=True), gr.Button(interactive=True)
+    return gr.Markdown(display_queue()), gr.Button(interactive=True), gr.Button(interactive=True), gr.Button(interactive=True)
 
 # キューの表示を更新する関数
 def display_queue():
@@ -333,6 +329,188 @@ def start_tensorboard(output_folder):
         subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         webbrowser.open("http://localhost:6006")
 
+def stop_slicing_process():
+    global is_slicing_terminated_by_user
+    is_slicing_terminated_by_user = True
+    gr.Info(locale_data["LNG_STATUS_STOPPED"])
+    return gr.Button(interactive=True), gr.Button(interactive=False), locale_data['LNG_STATUS_STOPPED']
+
+# 音声ファイルの前処理関数
+def remove_silence(waveform, sample_rate, silence_threshold_dbfs, min_silence_duration_ms):
+    frame_size = int(0.02 * sample_rate)
+    hop_size = frame_size // 2
+    num_frames = max(1, (waveform.size(1) - frame_size) // hop_size + 1)
+    energy = []
+    for i in range(num_frames):
+        start = i * hop_size
+        frame = waveform[:, start:start+frame_size]
+        rms = torch.sqrt(torch.mean(frame**2))
+        rms_db = 20 * torch.log10(rms + 1e-9)
+        energy.append(rms_db.item())
+    energy = torch.tensor(energy)
+    is_silent = energy < silence_threshold_dbfs
+    min_silence_frames = int((min_silence_duration_ms / 1000) * sample_rate / hop_size)
+    keep_samples = torch.ones(waveform.size(1), dtype=torch.bool)
+    silent_run = 0
+    run_start = 0
+    for i, silent in enumerate(is_silent):
+        if silent:
+            if silent_run == 0:
+                run_start = i
+            silent_run += 1
+        else:
+            if silent_run >= min_silence_frames:
+                start_sample = run_start * hop_size
+                end_sample = (i * hop_size) + frame_size
+                keep_samples[start_sample:end_sample] = False
+            silent_run = 0
+    if silent_run >= min_silence_frames:
+        start_sample = run_start * hop_size
+        end_sample = waveform.size(1)
+        keep_samples[start_sample:end_sample] = False
+    return waveform[:, keep_samples]
+    
+# 音声ファイルの分割処理関数
+def process_single_folder(input_folder, output_dir, duration, sample_rate, output_format, enable_silence_removal, silence_threshold_dbfs, min_silence_duration_ms, progress_callback=None):
+    global is_slicing_terminated_by_user
+    audio_extensions = ["*.wav", "*.flac", "*.ogg", "*.aiff", "*.mp3"]
+    audio_files = []
+    input_path = Path(input_folder)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for ext in audio_extensions:
+        audio_files.extend(list(input_path.glob(ext)))
+    
+    if not audio_files:
+        return 0, 0, []
+    
+    file_counter_in = 1
+    processed_count_local = 0
+    skipped_count_local = 0
+    failed_files_local = []
+    
+    for audio_path in audio_files:
+        if is_slicing_terminated_by_user:
+            break
+        
+        if progress_callback:
+            progress_callback(f"{locale_data['LNG_STATUS_SLICE']} {audio_path.name}")
+        
+        try:
+            waveform, original_sr = torchaudio.load(audio_path)
+            if waveform.size(0) > 1:
+                waveform = torch.mean(waveform, dim=0, keepdim=True)
+            if original_sr != int(sample_rate):
+                resampler = torchaudio.transforms.Resample(orig_freq=original_sr, new_freq=int(sample_rate))
+                waveform = resampler(waveform)
+            if enable_silence_removal:
+                processed_waveform = remove_silence(
+                    waveform, int(sample_rate), silence_threshold_dbfs, min_silence_duration_ms
+                )
+            else:
+                processed_waveform = waveform
+            
+            total_samples = processed_waveform.size(1)
+            segment_length_samples = int(duration * int(sample_rate))
+
+            if total_samples < segment_length_samples:
+                skipped_count_local += 1
+                continue
+                
+            start_sample = 0
+            file_counter = 1
+            while start_sample + segment_length_samples <= total_samples:
+                segment_data = processed_waveform[:, start_sample : start_sample + segment_length_samples]
+                new_file_prefix = f"{file_counter_in:04d}"
+                file_name = f"{new_file_prefix}_{file_counter:04d}.{output_format}"
+                output_file_path = output_dir / file_name
+                torchaudio.save(output_file_path, segment_data, int(sample_rate), format=output_format)
+                start_sample += segment_length_samples
+                file_counter += 1
+            file_counter_in += 1
+            processed_count_local += 1
+
+        except Exception as e:
+            failed_files_local.append(f"{audio_path.name}: {e}")
+            
+    return processed_count_local, skipped_count_local, failed_files_local
+
+# メインの分割処理関数
+def split_audio_files(input_folder, output_folder, enable_whole_dataset_slice, duration, sample_rate, output_format, enable_silence_removal, silence_threshold_dbfs, min_silence_duration_ms):
+    global is_slicing_terminated_by_user
+    is_slicing_terminated_by_user = False
+    yield gr.Button(interactive=False), gr.Button(interactive=True), locale_data["LNG_STATUS_WAITING"]
+
+    if not input_folder:
+        gr.Warning(locale_data["LNG_ERROR_NO_INPUT_FOLDER"])
+        yield gr.Button(interactive=True), gr.Button(interactive=False), locale_data["LNG_STATUS_WAITING"]
+        return
+    
+    input_path = Path(input_folder)
+    if not input_path.exists():
+        gr.Warning(locale_data["LNG_INPUT_FOLDER_ALERT"])
+        yield gr.Button(interactive=True), gr.Button(interactive=False), locale_data["LNG_STATUS_WAITING"]
+        return
+
+    total_processed_count = 0
+    total_skipped_count = 0
+    all_failed_files = []
+    
+    if enable_whole_dataset_slice:
+        if not has_audio_files_in_subfolders(input_folder):
+            gr.Warning(locale_data["LNG_NO_AUDIO_FILES_IN_SUBFOLDERS_ALERT"])
+            yield gr.Button(interactive=True), gr.Button(interactive=False), locale_data["LNG_STATUS_WAITING"]
+            return
+            
+        if not output_folder:
+            output_folder = Path(input_folder).parent / f"{Path(input_folder).name}_slice"
+            output_folder.mkdir(parents=True, exist_ok=True)
+        else:
+            output_folder = Path(output_folder)
+            output_folder.mkdir(parents=True, exist_ok=True)
+            
+        subfolders = [f for f in input_path.iterdir() if f.is_dir()]
+        total_folders = len(subfolders)
+        for i, subfolder in enumerate(subfolders):
+            if is_slicing_terminated_by_user:
+                break
+            yield gr.Button(interactive=False), gr.Button(interactive=True), f"{locale_data['LNG_STATUS_SLICE']} {subfolder.name} ({i+1}/{total_folders})"
+            relative_path = subfolder.relative_to(input_path)
+            output_subfolder = output_folder / relative_path
+            
+            processed, skipped, failed = process_single_folder(subfolder, output_subfolder, duration, sample_rate, output_format, enable_silence_removal, silence_threshold_dbfs, min_silence_duration_ms, progress_callback=lambda s: gr.Markdown(s))
+            total_processed_count += processed
+            total_skipped_count += skipped
+            all_failed_files.extend(failed)
+    else: # 単一フォルダモード
+        if not output_folder:
+            base_output_dir_name = f"slice_{output_format}"
+            output_folder = input_path / base_output_dir_name
+            counter = 1
+            while output_folder.exists():
+                counter += 1
+                output_folder = input_path / f"{base_output_dir_name}_{counter:03d}"
+        else:
+            output_folder = Path(output_folder)
+        
+        if has_audio_files_in_subfolders(input_folder):
+            gr.Warning(locale_data["LNG_NO_AUDIO_FILES_IN_SUBFOLDERS_ALERT"])
+            yield gr.Button(interactive=True), gr.Button(interactive=False), locale_data["LNG_STATUS_WAITING"]
+            return
+
+        processed, skipped, failed = process_single_folder(input_folder, output_folder, duration, sample_rate, output_format, enable_silence_removal, silence_threshold_dbfs, min_silence_duration_ms, progress_callback=lambda s: gr.Markdown(s))
+        total_processed_count = processed
+        total_skipped_count = skipped
+        all_failed_files.extend(failed)
+
+    if is_slicing_terminated_by_user:
+        yield gr.Button(interactive=True), gr.Button(interactive=False), locale_data['LNG_STATUS_STOPPED']
+    elif all_failed_files:
+        failed_message = "<br>".join(all_failed_files)
+        yield gr.Button(interactive=True), gr.Button(interactive=False), locale_data['LNG_COMPLETE_WITH_FAILURES'].format(processed_count=total_processed_count, len=len(all_failed_files), failed_message=failed_message)
+    else:
+        yield gr.Button(interactive=True), gr.Button(interactive=False), locale_data['LNG_COMPLETE_SUCCESS'].format(processed_count=total_processed_count, skipped_count=total_skipped_count, output_dir=output_folder)
+
+
 # UI構築
 with gr.Blocks() as demo:
     gr.HTML(f"<h1>{locale_data['LNG_TITLE']}</h1><p style='font-size: 1.0em;'>Ver: {VERSION}</p>")
@@ -359,8 +537,7 @@ with gr.Blocks() as demo:
             # --- Main Training Parameters---
             with gr.Accordion(locale_data["LNG_BASIC_TRAINING"], open=True):
                 with gr.Row():
-                    n_steps = gr.Slider(
-                        minimum=0,maximum=1000000,step=1000,
+                    n_steps = gr.Number(
                         value=default_config["n_steps"],
                         label="n_steps",
                         info=locale_data["LNG_N_STEPS_INFO"]
@@ -378,14 +555,12 @@ with gr.Blocks() as demo:
                         info=locale_data["LNG_NUM_WORKERS_INFO"]
                     )
                 with gr.Row():
-                    save_interval = gr.Slider(
-                        minimum=0,maximum=50000,step=100,
+                    save_interval = gr.Number(
                         value=default_config["save_interval"],
                         label="Save Interval",
                         info=locale_data["LNG_SAVE_INTERVAL_INFO"]
                     )
-                    evaluation_interval = gr.Slider(
-                        minimum=0,maximum=50000,step=100,
+                    evaluation_interval = gr.Number(
                         value=default_config["evaluation_interval"],
                         label="Evaluation Interval",
                         info=locale_data["LNG_EVALUATION_INTERVAL_INFO"]
@@ -472,7 +647,7 @@ with gr.Blocks() as demo:
                 tensorboard_button = gr.Button(value=locale_data["LNG_TENSORBOARD_BUTTON"])
                 
             # キューの状態表示
-            queue_status_box = gr.Markdown(locale_data["LNG_TASK_MONITOR"] + locale_data["LNG_TASK_MONITOR_EMPTY"])
+            queue_status_box = gr.Markdown(locale_data["LNG_TASK_MONITOR_EMPTY"])
             
             # --- Event Handlers ---
             all_inputs = [
@@ -515,6 +690,11 @@ with gr.Blocks() as demo:
                     label=locale_data["LNG_OUTPUT_DIR_PREP_LABEL"],
                     placeholder=locale_data["LNG_OUTPUT_DIR_PREP_PLACE"]
                 )
+                enable_whole_dataset_slice = gr.Checkbox(
+                    info=locale_data["LNG_DATASET_SLICE_INFO"],
+                    label=locale_data["LNG_DATASET_SLICE"],
+                    value=False
+                )
                 with gr.Row():
                     segment_duration_sec = gr.Slider(
                         minimum=1,maximum=30,step=1,value=4,
@@ -549,122 +729,21 @@ with gr.Blocks() as demo:
                         label=locale_data["LNG_MIN_SILENCE_DURATION_LABEL"],
                         info=locale_data["LNG_MIN_SILENCE_DURATION_INFO"]
                     )             
-                split_button = gr.Button(locale_data["LNG_SPLIT_BUTTON"], variant="primary")
-                status_markdown = gr.Markdown(locale_data["LNG_STATUS_WAITING"])
-            # 無音削除処理
-            def remove_silence(waveform, sample_rate, silence_threshold_dbfs, min_silence_duration_ms):
-                frame_size = int(0.02 * sample_rate)
-                hop_size = frame_size // 2
-                num_frames = max(1, (waveform.size(1) - frame_size) // hop_size + 1)
-                energy = []
-                for i in range(num_frames):
-                    start = i * hop_size
-                    frame = waveform[:, start:start+frame_size]
-                    rms = torch.sqrt(torch.mean(frame**2))
-                    rms_db = 20 * torch.log10(rms + 1e-9)
-                    energy.append(rms_db.item())
-                energy = torch.tensor(energy)
-                is_silent = energy < silence_threshold_dbfs
-                min_silence_frames = int((min_silence_duration_ms / 1000) * sample_rate / hop_size)
-                keep_samples = torch.ones(waveform.size(1), dtype=torch.bool)
-                silent_run = 0
-                run_start = 0
-                for i, silent in enumerate(is_silent):
-                    if silent:
-                        if silent_run == 0:
-                            run_start = i
-                        silent_run += 1
-                    else:
-                        if silent_run >= min_silence_frames:
-                            start_sample = run_start * hop_size
-                            end_sample = (i * hop_size) + frame_size
-                            keep_samples[start_sample:end_sample] = False
-                        silent_run = 0
-                if silent_run >= min_silence_frames:
-                    start_sample = run_start * hop_size
-                    end_sample = waveform.size(1)
-                    keep_samples[start_sample:end_sample] = False
-                return waveform[:, keep_samples]
-            def split_audio_files(input_folder, output_folder, duration, sample_rate, output_format, enable_silence_removal, silence_threshold_dbfs, min_silence_duration_ms):
-                if not input_folder:
-                    gr.Warning(locale_data["LNG_ERROR_NO_INPUT_FOLDER"])
-                    # ここで `return` を使って関数の実行を終了させる
-                    return
-                input_path = Path(input_folder)
-                if output_folder:
-                    output_dir = Path(output_folder)
-                else:
-                    base_output_dir_name = f"slice_{output_format}"
-                    output_dir = input_path / base_output_dir_name
-                    counter = 1
-                    while output_dir.exists():
-                        counter += 1
-                        output_dir = input_path / f"{base_output_dir_name}_{counter:03d}"
-                try:
-                    output_dir.mkdir(parents=True, exist_ok=True)
-                except Exception as e:
-                    gr.Warning(locale_data["LNG_ERROR_OUTPUT_FOLDER_CREATION"].format(output_dir=output_dir, e=e))
-                    return
-                audio_extensions = ["*.wav", "*.flac", "*.ogg", "*.aiff", "*.mp3"]
-                audio_files = []
-                for ext in audio_extensions:
-                    audio_files.extend(list(input_path.glob(ext)))
-                if not audio_files:
-                    gr.Warning(locale_data["LNG_WARNING_NO_AUDIO_FILES"])
-                    return
-                processed_count = 0
-                skipped_count = 0
-                failed_files = []
-                file_counter_in = 1
-                total_files = len(audio_files)
-
-                for audio_path in audio_files:
-
-                    processed_count += 1
-                    progress_percent = (processed_count / total_files) * 100
-                    # 進捗状況と現在処理中のファイル名をリアルタイムでyield
-                    yield f"Processing {processed_count}/{total_files} files ({progress_percent:.1f}%): **{audio_path.name}**"
-                    try:
-                        waveform, original_sr = torchaudio.load(audio_path)
-                        if waveform.size(0) > 1:
-                            waveform = torch.mean(waveform, dim=0, keepdim=True)
-                        if original_sr != int(sample_rate):
-                            resampler = torchaudio.transforms.Resample(orig_freq=original_sr, new_freq=int(sample_rate))
-                            waveform = resampler(waveform)
-                        if enable_silence_removal:
-                            processed_waveform = remove_silence(
-                                waveform, int(sample_rate), silence_threshold_dbfs, min_silence_duration_ms
-                            )
-                        else:
-                            processed_waveform = waveform
-                        total_samples = processed_waveform.size(1)
-                        segment_length_samples = int(duration * int(sample_rate))
-                        # 指定秒数未満のファイルをスキップする
-                        if total_samples < segment_length_samples:
-                            skipped_count += 1
-                            continue                      
-                        start_sample = 0
-                        file_counter = 1
-                        while start_sample + segment_length_samples <= total_samples:
-                            segment_data = processed_waveform[:, start_sample : start_sample + segment_length_samples]
-                            new_file_prefix = f"{file_counter_in:04d}"
-                            file_name = f"{new_file_prefix}_{file_counter:04d}.{output_format}"
-                            output_file_path = output_dir / file_name
-                            torchaudio.save(output_file_path, segment_data, int(sample_rate), format=output_format)
-                            start_sample += segment_length_samples
-                            file_counter += 1
-                        file_counter_in += 1
-                    except Exception as e:
-                        failed_files.append(f"{audio_path.name}: {e}")
-                if failed_files:
-                    failed_message = "<br>".join(failed_files)
-                    yield locale_data["LNG_COMPLETE_WITH_FAILURES"].format(processed_count=processed_count, len=len(failed_files), failed_message=failed_message)
-                else:
-                    yield locale_data["LNG_COMPLETE_SUCCESS"].format(processed_count=processed_count, skipped_count=skipped_count, output_dir=output_dir)
+                with gr.Row():
+                    split_button = gr.Button(locale_data["LNG_SPLIT_BUTTON"], variant="primary")
+                    stop_slice_button = gr.Button(locale_data["LNG_STOP_SLICE_BUTTON"], variant="stop", interactive=False)
+            
+            status_markdown = gr.Markdown(locale_data["LNG_STATUS_WAITING"])
+            
             split_button.click(
                 fn=split_audio_files,
-                inputs=[input_dir_prep, output_dir_prep, segment_duration_sec, output_samplerate, output_format, enable_silence_removal, silence_threshold_dbfs, min_silence_duration_ms],
-                outputs=status_markdown
+                inputs=[input_dir_prep, output_dir_prep, enable_whole_dataset_slice, segment_duration_sec, output_samplerate, output_format, enable_silence_removal, silence_threshold_dbfs, min_silence_duration_ms],
+                outputs=[split_button, stop_slice_button, status_markdown],
             )
-
+            stop_slice_button.click(
+                fn=stop_slicing_process,
+                inputs=None,
+                outputs=[split_button, stop_slice_button, status_markdown],
+            )
+            
 demo.launch(inbrowser=True)
