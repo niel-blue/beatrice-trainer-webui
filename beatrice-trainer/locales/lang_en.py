@@ -1,4 +1,4 @@
-# VERSION = "25.09.18"
+# VERSION = "25.09.22"
 # lang_en.py
 lang_data = {
     "LNG_TITLE": "Beatrice-Trainer Unofficial Simple WebUI (for 2.0.0-rc.0)",
@@ -72,7 +72,7 @@ lang_data = {
     "LNG_TENSORBOARD_BUTTON": "Launch TensorBoard",
 
     # Dataset Preprocessing Tab
-    "LNG_TAB_DATASET_PROCESSING": "Dataset Preprocessing",
+    "LNG_TAB_DATASET_PROCESSING": "Audio File Splitter",
     "LNG_DATASET_PROCESSING_DESC": "Splits audio files (wav, ogg, mp3, flac, etc.) into specified lengths and converts them to wav or flac format.",
     
     "LNG_INPUT_DIR_PREP_LABEL": "Input Folder",
@@ -92,12 +92,16 @@ lang_data = {
     "LNG_MIN_SILENCE_DURATION_LABEL": "Minimum Silence Duration (milliseconds)",
     "LNG_MIN_SILENCE_DURATION_INFO": "Removes silence segments that are longer than this duration.",
 
-    "LNG_STATUS_WAITING": "### Status: Waiting",
-    "LNG_ERROR_NO_INPUT_FOLDER": "Error: Please specify an input folder.",
-    "LNG_WARNING_NO_AUDIO_FILES": "Warning: No audio files found in the specified folder.",
-    "LNG_ERROR_OUTPUT_FOLDER_CREATION": "Error: Failed to create output folder '{output_dir}'.<br>{e}",
-    "LNG_COMPLETE_WITH_FAILURES": "Processing complete. Succeeded: {processed_count}, Failed: {len(failed_files)}.<br>Failed files:<br>{failed_message}",
-    "LNG_COMPLETE_SUCCESS": "Processing complete. {processed_count} files processed. Skipped: {skipped_count}. Output destination: {output_dir}",
-    
-    "LNG_SPLIT_BUTTON": "Export Audio Files"
+    "LNG_STATUS_WAITING": "Status: Waiting",
+    "LNG_STATUS_SLICE": "Status: Processing",
+    "LNG_ERROR_NO_INPUT_FOLDER": "Please specify an input folder.",
+    "LNG_DATASET_SLICE": "Use full dataset slicing",    
+    "LNG_DATASET_SLICE_INFO": "By specifying the path to an entire dataset that includes multiple speaker folders, it will slice the files while maintaining the folder structure.",
+    "LNG_WARNING_NO_AUDIO_FILES": "No audio files were found in the specified folder.",
+    "LNG_ERROR_OUTPUT_FOLDER_CREATION": "Failed to create output folder '{output_dir}'<br>{e}",
+    "LNG_COMPLETE_WITH_FAILURES": "Processing complete.Success: {processed_count} Failures: {len(failed_files)}.<br>Failed files:<br>{failed_message}",
+    "LNG_COMPLETE_SUCCESS": "Processing complete. Processed {processed_count} files. Skipped: {skipped_count}. Output destination: {output_dir}",
+    "LNG_SPLIT_BUTTON": "Export Audio Files",
+    "LNG_STOP_SLICE_BUTTON": "Stop Processing",
+    "LNG_STATUS_STOPPED": "Stopped by user."
 }

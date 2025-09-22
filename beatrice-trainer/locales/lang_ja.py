@@ -1,4 +1,4 @@
-# VERSION = "25.09.18"
+# VERSION = "25.09.22"
 # lang_ja.py
 lang_data = {
     "LNG_TITLE": "Beatrice-Trainer Unofficial Simple WebUI (for 2.0.0-rc.0)",
@@ -6,7 +6,7 @@ lang_data = {
     
     "LNG_STOP_SUCCESS_MESSAGE": "トレーニングプロセスを停止しました。キューをクリアします。",
     "LNG_STOP_NO_PROCESS_MESSAGE": "実行中のトレーニングプロセスはありません。キューをクリアします。",
-    "LNG_RESUME_WARNING": "指定されたn_stepsの値 ({n_steps_val}) が、既存のconfig.jsonのステップ数 ({existing_steps}) 以下です。継続して学習を行うには、より大きな値を指定してください。",
+    "LNG_RESUME_WARNING": "指定されたn_stepsの値 ({n_steps_val}) が、前回保存されたconfig.jsonのステップ数 ({existing_steps}) より少ないです。n_stepsの値が正しいか確認してください。",
     "LNG_CONFIG_LOAD_ERROR": "config.jsonの読み込み中に問題が発生しました: {e}",
     "LNG_CONFIG_NOT_FOUND_WARNING": "追加学習用のconfig.jsonが見つかりませんでした。新規学習として扱います。",
     "LNG_LATEST_CHECKPOINT_BACKUP": "既存の最新チェックポイントをバックアップしました: {backup_path}",
@@ -52,7 +52,7 @@ lang_data = {
     "LNG_IN_SAMPLE_RATE_INFO": "変更不可。",
     "LNG_OUT_SAMPLE_RATE_INFO": "変更不可。",
     
-    "LNG_TASK_MONITOR": "### [タスクモニター]\n",
+    "LNG_TASK_MONITOR": "タスクモニター",
     "LNG_TASK_MONITOR_EMPTY": "現在キューは空です。タスクを追加してください。",
     "LNG_QUEUE_TASK_ADDED": "タスクをキューに登録しました: {output_folder}",
     "LNG_QUEUE_TASK_RESUMED": "追加学習としてキューに登録しました: {output_folder}",
@@ -71,8 +71,8 @@ lang_data = {
     "LNG_STOP_TRAINING_BUTTON": "中断/キューのクリア",
     "LNG_TENSORBOARD_BUTTON": "TensorBoardを起動",
 
-    # データセット前処理タブ
-    "LNG_TAB_DATASET_PROCESSING": "データセット前処理" ,
+    # 音声ファイル前処理タブ
+    "LNG_TAB_DATASET_PROCESSING": "音声ファイルスライサー" ,
     "LNG_DATASET_PROCESSING_DESC": "音声ファイル（wav、ogg、mp3、flacなど）を指定した長さに分割し、wavやflac形式に変換して保存出来ます。",
     
     "LNG_INPUT_DIR_PREP_LABEL": "[入力フォルダの指定]",
@@ -92,13 +92,16 @@ lang_data = {
     "LNG_MIN_SILENCE_DURATION_LABEL": "最小無音時間（ミリ秒）",
     "LNG_MIN_SILENCE_DURATION_INFO": "この時間よりも長い無音部分を除去します。",
 
-    "LNG_STATUS_WAITING": "### 状況: 待機中",
+    "LNG_STATUS_WAITING": "状況: 待機中",
+    "LNG_STATUS_SLICE": "状況: 処理中",
     "LNG_ERROR_NO_INPUT_FOLDER": "入力フォルダを指定してください。",
+    "LNG_DATASET_SLICE": "データセットまるごとスライスを使用する",    
+    "LNG_DATASET_SLICE_INFO": "複数の話者フォルダを含むデータセット全体のパスを指定することで、フォルダ構造を維持したままスライスします。",
     "LNG_WARNING_NO_AUDIO_FILES": "指定されたフォルダに音声ファイルが見つかりませんでした。",
     "LNG_ERROR_OUTPUT_FOLDER_CREATION": "出力フォルダ '{output_dir}' の作成に失敗しました。<br>{e}",
     "LNG_COMPLETE_WITH_FAILURES": "処理が完了しました。成功: {processed_count}、失敗: {len(failed_files)}。<br>失敗ファイル:<br>{failed_message}",
     "LNG_COMPLETE_SUCCESS": "処理が完了しました。{processed_count} ファイルを処理しました。スキップ: {skipped_count}。出力先: {output_dir}",
-
-    "LNG_SPLIT_BUTTON": "音声ファイル書き出し"
-
+    "LNG_SPLIT_BUTTON": "音声ファイル書き出し",
+    "LNG_STOP_SLICE_BUTTON": "処理を中断",
+    "LNG_STATUS_STOPPED": "ユーザーによって中断されました。"
 }
