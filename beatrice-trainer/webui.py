@@ -360,7 +360,7 @@ with gr.Blocks() as demo:
             with gr.Accordion(locale_data["LNG_BASIC_TRAINING"], open=True):
                 with gr.Row():
                     n_steps = gr.Slider(
-                        minimum=0,maximum=100000,step=1000,
+                        minimum=0,maximum=1000000,step=1000,
                         value=default_config["n_steps"],
                         label="n_steps",
                         info=locale_data["LNG_N_STEPS_INFO"]
@@ -666,4 +666,5 @@ with gr.Blocks() as demo:
                 inputs=[input_dir_prep, output_dir_prep, segment_duration_sec, output_samplerate, output_format, enable_silence_removal, silence_threshold_dbfs, min_silence_duration_ms],
                 outputs=status_markdown
             )
+
 demo.launch(inbrowser=True)
