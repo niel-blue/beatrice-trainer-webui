@@ -16,7 +16,7 @@ import queue
 import re
 
 # バージョン情報
-VERSION = "25.09.22"
+VERSION = "25.09.24"
 
 # グローバル変数など
 torchaudio.set_audio_backend("sox_io")
@@ -187,6 +187,13 @@ def start_training_command(input_folder, output_folder, is_resume):
 # トレーニングキューを処理するジェネレータ関数
 def process_training_queue_generator():
     global training_process, is_terminated_by_user, training_tasks
+    
+    # ★★★ ここから修正 ★★★
+    if not training_tasks:
+        yield gr.Button(interactive=True), gr.Button(interactive=False), gr.Button(interactive=False), gr.Markdown(display_queue())
+        return
+    # ★★★ ここまで修正 ★★★
+
     # 開始時にボタンを無効化
     yield gr.Button(interactive=False), gr.Button(interactive=False), gr.Button(interactive=True), gr.Markdown(display_queue())
     for task in training_tasks:
@@ -228,7 +235,6 @@ def process_training_queue_generator():
 # 停止関数
 def stop_training():
     global training_process, is_terminated_by_user, training_tasks
-    is_terminated_by_user = True
     if training_process and training_process.poll() is None:
         training_process.kill()
         gr.Info(locale_data["LNG_STOP_SUCCESS_MESSAGE"])
@@ -236,7 +242,9 @@ def stop_training():
         gr.Info(locale_data["LNG_STOP_NO_PROCESS_MESSAGE"])
     # キューを完全にクリアする
     training_tasks.clear()
-    return gr.Button(interactive=True), gr.Button(interactive=False), gr.Button(interactive=False), gr.Markdown(display_queue())
+    # is_terminated_by_userフラグをリセット
+    is_terminated_by_user = False
+    return gr.Button(interactive=True), gr.Button(interactive=True), gr.Button(interactive=False), gr.Markdown(display_queue())
 
 # キューにタスクを追加する関数
 def add_to_queue(input_folder, output_folder, checkpoint, *args):
