@@ -371,7 +371,7 @@ def remove_silence(waveform, sample_rate, silence_threshold_dbfs, min_silence_du
     return waveform[:, keep_samples]
     
 # 音声ファイルの分割処理関数
-def process_single_folder(input_folder, output_dir, duration, sample_rate, output_format, enable_silence_removal, silence_threshold_dbfs, min_silence_duration_ms, progress_callback=None):
+def process_single_folder(input_folder, output_dir, duration, sample_rate, output_format, enable_silence_removal, silence_threshold_dbfs, min_silence_duration_ms):
     global is_slicing_terminated_by_user
     audio_extensions = ["*.wav", "*.flac", "*.ogg", "*.aiff", "*.mp3"]
     audio_files = []
@@ -381,7 +381,7 @@ def process_single_folder(input_folder, output_dir, duration, sample_rate, outpu
         audio_files.extend(list(input_path.glob(ext)))
     
     if not audio_files:
-        return 0, 0, []
+        yield 0, 0, []
     
     file_counter_in = 1
     processed_count_local = 0
@@ -392,8 +392,8 @@ def process_single_folder(input_folder, output_dir, duration, sample_rate, outpu
         if is_slicing_terminated_by_user:
             break
         
-        if progress_callback:
-            progress_callback(f"{locale_data['LNG_STATUS_SLICE']} {audio_path.name}")
+        # ファイルごとにステータスをyieldで返すように修正
+        yield locale_data['LNG_STATUS_SLICE'], audio_path.name
         
         try:
             waveform, original_sr = torchaudio.load(audio_path)
@@ -432,7 +432,7 @@ def process_single_folder(input_folder, output_dir, duration, sample_rate, outpu
         except Exception as e:
             failed_files_local.append(f"{audio_path.name}: {e}")
             
-    return processed_count_local, skipped_count_local, failed_files_local
+    yield processed_count_local, skipped_count_local, failed_files_local
 
 # メインの分割処理関数
 def split_audio_files(input_folder, output_folder, enable_whole_dataset_slice, duration, sample_rate, output_format, enable_silence_removal, silence_threshold_dbfs, min_silence_duration_ms):
@@ -473,14 +473,21 @@ def split_audio_files(input_folder, output_folder, enable_whole_dataset_slice, d
         for i, subfolder in enumerate(subfolders):
             if is_slicing_terminated_by_user:
                 break
+            # フォルダごとのステータスを更新
             yield gr.Button(interactive=False), gr.Button(interactive=True), f"{locale_data['LNG_STATUS_SLICE']} {subfolder.name} ({i+1}/{total_folders})"
             relative_path = subfolder.relative_to(input_path)
             output_subfolder = output_folder / relative_path
             
-            processed, skipped, failed = process_single_folder(subfolder, output_subfolder, duration, sample_rate, output_format, enable_silence_removal, silence_threshold_dbfs, min_silence_duration_ms, progress_callback=lambda s: gr.Markdown(s))
-            total_processed_count += processed
-            total_skipped_count += skipped
-            all_failed_files.extend(failed)
+            # process_single_folderのジェネレータをループしてステータスを中継
+            for status_or_result in process_single_folder(subfolder, output_subfolder, duration, sample_rate, output_format, enable_silence_removal, silence_threshold_dbfs, min_silence_duration_ms):
+                if isinstance(status_or_result, tuple) and len(status_or_result) == 2:
+                    status, filename = status_or_result
+                    yield gr.Button(interactive=False), gr.Button(interactive=True), f"{status} {filename}"
+                else:
+                    processed, skipped, failed = status_or_result
+                    total_processed_count += processed
+                    total_skipped_count += skipped
+                    all_failed_files.extend(failed)
     else: # 単一フォルダモード
         if not output_folder:
             base_output_dir_name = f"slice_{output_format}"
@@ -492,15 +499,26 @@ def split_audio_files(input_folder, output_folder, enable_whole_dataset_slice, d
         else:
             output_folder = Path(output_folder)
         
-        if has_audio_files_in_subfolders(input_folder):
-            gr.Warning(locale_data["LNG_NO_AUDIO_FILES_IN_SUBFOLDERS_ALERT"])
+        # 音声ファイルが見つかるか再チェック
+        audio_extensions = ["*.wav", "*.flac", "*.ogg", "*.aiff", "*.mp3"]
+        audio_files = []
+        for ext in audio_extensions:
+            audio_files.extend(list(input_path.glob(f"**/{ext}")))
+        if not audio_files:
+            gr.Warning(locale_data["LNG_WARNING_NO_AUDIO_FILES"])
             yield gr.Button(interactive=True), gr.Button(interactive=False), locale_data["LNG_STATUS_WAITING"]
             return
-
-        processed, skipped, failed = process_single_folder(input_folder, output_folder, duration, sample_rate, output_format, enable_silence_removal, silence_threshold_dbfs, min_silence_duration_ms, progress_callback=lambda s: gr.Markdown(s))
-        total_processed_count = processed
-        total_skipped_count = skipped
-        all_failed_files.extend(failed)
+        
+        # process_single_folderのジェネレータをループしてステータスを中継
+        for status_or_result in process_single_folder(input_folder, output_folder, duration, sample_rate, output_format, enable_silence_removal, silence_threshold_dbfs, min_silence_duration_ms):
+            if isinstance(status_or_result, tuple) and len(status_or_result) == 2:
+                status, filename = status_or_result
+                yield gr.Button(interactive=False), gr.Button(interactive=True), f"{status} {filename}"
+            else:
+                processed, skipped, failed = status_or_result
+                total_processed_count = processed
+                total_skipped_count = skipped
+                all_failed_files.extend(failed)
 
     if is_slicing_terminated_by_user:
         yield gr.Button(interactive=True), gr.Button(interactive=False), locale_data['LNG_STATUS_STOPPED']
