@@ -1,6 +1,6 @@
 # Beatrice Trainer v2 rc.0 対応　Unofficial Simple WebUI
 
-<img width="1054" height="849" alt="webui" src="https://github.com/user-attachments/assets/79bc04ee-399e-4762-b6fb-7d3d0cd7547b" />
+<img width="1264" height="806" alt="webui" src="https://github.com/user-attachments/assets/be048514-26bf-40a7-b091-667a3618147f" />
 
 
 ### バージョン履歴
