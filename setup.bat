@@ -6,7 +6,7 @@ echo  =================================================
 echo  Beatrice Trainer 2.0.0-rc.0
 echo  Unofficial Simple WebUI Installer for CUDA
 echo.
-echo  2025.09.11
+echo  2025.11.02
 echo  =================================================
 echo.
 
@@ -76,6 +76,7 @@ call venv\Scripts\activate.bat
 
 pip install .[cpu]
 pip install gradio==5.5
+pip install huggingface_hub==0.26.2
 pip install TensorFlow
 
 pip uninstall -y torch torchaudio
