@@ -17,6 +17,7 @@
 本プログラムは、AIボイスチェンジャー「Beatrice」用の学習キット「Beatrice Trainer」を簡単に導入出来るようにしWebUI機能を追加したものです。  
 『Beatrice』と『Beatrice Trainer』に関する詳細は、以下のリンクをご確認ください
 
+- [Beatrice 2 についてのゆるい説明など（公式の解説ページ）](https://prj-beatrice.notion.site/Beatrice-2-266fb3c9fba480e8a0e3dc2f40d0bad3) 
 - [Beatrice (AIボイスチェンジャー VST)](https://prj-beatrice.com/)
 - [Beatrice Trainer (学習キット)](https://huggingface.co/fierce-cats/beatrice-trainer) 
 
