@@ -1,4 +1,4 @@
-# Beatrice Trainer v2 rc.0 対応　Unofficial Simple WebUI
+# Beatrice Trainer v2 rc.2 対応　Unofficial Simple WebUI
 
 <img width="1264" height="806" alt="webui" src="https://github.com/user-attachments/assets/be048514-26bf-40a7-b091-667a3618147f" />
 
@@ -53,8 +53,8 @@ Beatrice公式から推奨スペックの発表はありません。
 ---
 
 
-### BeatriceTrainer と Webui 両方まとめて導入
-
+### BeatriceTrainer と Webui 両方まとめて導入   
+<br>
 1. [リポジトリをダウンロード](https://github.com/niel-blue/beatrice-trainer-webui/archive/refs/heads/main.zip)、適切な場所に解凍。  
 その際、あまりに深い階層や、日本語を使用したフォルダの中などは避けてください。
 
@@ -65,21 +65,30 @@ Beatrice公式から推奨スペックの発表はありません。
 2. 同梱されている `setup.bat` を実行すると、自動的にダウンロードおよび環境構築が始まります。  
 通信環境によっては非常に時間がかかる場合があります。  導入が完了すると、自動的にwebuiが起動します。
 3. 次回からの起動には`run_webui.bat` を実行して、Web UIを起動させてください。    
-
+<br>
   
-音源ファイルは以下のような配置にしておいてください。  
+音源ファイルは事前処理を済ませたうえで以下のような配置にしておいてください。  
+ファイル長にバラツキがあると学習時に不要な時間がかかってしまいます。  
+別途自身で分割などを済ませておくか、webui付属のツールで無音処理や音声スライスなどを行ってください。  
   
 例）    
 dataset_1/    ※このフォルダ名がモデル名になります  
 　　├── 話者1/  
-　　│　　　├── 音声ファイル1.wav  
-　　│　　　└── 音声ファイル2.flac  
+　　│　　　├── 音声ファイル001.wav  
+　　│　　　└── 音声ファイル002.flac  
 　　└── 話者2/  
-  　　　　　└── 音声ファイル1.wav    
+  　　　　　└── 音声ファイル001.wav    
+  　　　　　└── 音声ファイル002.wav    
+  　　　　　└── 音声ファイル003.wav    
 
   
 上記の場合、webui上では、dataset_1 までのパスをデータセットのパスとして指定することになります。  
+  
 
+  
+使い方などについてさらに詳しく知りたい方は以下のnoteを参照してください。  
+https://note.com/uunin/n/nbc6813028902   
+  
   
 ---
 
