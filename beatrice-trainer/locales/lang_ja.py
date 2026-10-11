@@ -82,7 +82,7 @@ lang_data = {
     "LNG_SEGMENT_DURATION_LABEL": "音声の分割長さ（秒）",
     "LNG_SEGMENT_DURATION_INFO": "音声を指定した長さで分割します。（※4秒 推奨）",
     "LNG_OUTPUT_SAMPLERATE_LABEL": "サンプリングレート",
-    "LNG_OUTPUT_SAMPLERATE_INFO": "出力する音声のサンプリングレートを選択（※16000Hz 推奨）",
+    "LNG_OUTPUT_SAMPLERATE_INFO": "出力する音声のサンプリングレートを選択",
     "LNG_OUTPUT_FORMAT_LABEL": "出力形式を選択",
     "LNG_OUTPUT_FORMAT_INFO": "保存するファイル形式を選択してください。",
     "LNG_SILENCE_REMOVAL_OPTIONS": "無音部分削除オプション",

@@ -82,7 +82,7 @@ lang_data = {
     "LNG_SEGMENT_DURATION_LABEL": "Audio Segment Length (seconds)",
     "LNG_SEGMENT_DURATION_INFO": "Splits audio into segments of the specified length. (*4 seconds recommended)",
     "LNG_OUTPUT_SAMPLERATE_LABEL": "Sampling Rate",
-    "LNG_OUTPUT_SAMPLERATE_INFO": "Select the sampling rate for the output audio files. (*16000Hz recommended)",
+    "LNG_OUTPUT_SAMPLERATE_INFO": "Select the sampling rate for the output audio files.",
     "LNG_OUTPUT_FORMAT_LABEL": "Select Output Format",
     "LNG_OUTPUT_FORMAT_INFO": "Choose the file format to save.",
     "LNG_SILENCE_REMOVAL_OPTIONS": "Silence Removal Options",

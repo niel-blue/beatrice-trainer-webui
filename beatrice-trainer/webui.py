@@ -723,20 +723,20 @@ with gr.Blocks() as demo:
                 )
                 with gr.Row():
                     segment_duration_sec = gr.Slider(
-                        minimum=1,maximum=30,step=1,value=4,
+                        minimum=1,maximum=30,step=1,value=5,
                         label=locale_data["LNG_SEGMENT_DURATION_LABEL"],
                         info=locale_data["LNG_SEGMENT_DURATION_INFO"]
                     )
                     output_samplerate = gr.Dropdown(
                         label=locale_data["LNG_OUTPUT_SAMPLERATE_LABEL"],
-                        choices=["8000", "11025", "16000", "22050", "32000", "44100", "48000"],
-                        value="16000",
+                        choices=["8000", "11025", "16000", "22050", "24000", "32000", "44100", "48000"],
+                        value="24000",
                         info=locale_data["LNG_OUTPUT_SAMPLERATE_INFO"],
                     )
                     output_format = gr.Dropdown(
                         label=locale_data["LNG_OUTPUT_FORMAT_LABEL"],
                         choices=["wav", "flac"],
-                        value="wav",
+                        value="flac",
                         info=locale_data["LNG_OUTPUT_FORMAT_INFO"]
                     )
                 with gr.Row():
